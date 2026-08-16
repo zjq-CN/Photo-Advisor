@@ -153,6 +153,20 @@ class OptimizationSchemaTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             app_module.validate_session_id("../../api_keys")
 
+    def test_local_ip_parser_supports_english_windows_output(self):
+        output = """Windows IP Configuration
+
+Ethernet adapter vEthernet (Default Switch):
+   IPv4 Address. . . . . . . . . . . : 172.20.0.1
+
+Wireless LAN adapter WLAN:
+   IPv4 Address. . . . . . . . . . . : 192.168.43.26
+   Default Gateway . . . . . . . . . : 192.168.43.1
+"""
+        completed = Mock(stdout=output)
+        with patch.object(app_module.subprocess, "run", return_value=completed):
+            self.assertEqual(app_module.get_local_ip(), "192.168.43.26")
+
 
 class RenderingAndPayloadTests(unittest.TestCase):
     def test_mobile_page_is_rendered_from_backend_schema(self):

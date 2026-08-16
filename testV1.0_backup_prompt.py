@@ -991,8 +991,8 @@ def evaluate_image_quality(
 # =========================
 def get_local_ip() -> str:
     """
-    强制优先从 Windows 的无线局域网适配器中提取 IPv4。
-    找不到再退回以太网，再找不到返回 127.0.0.1
+    从中英文 Windows ipconfig 输出中提取局域网 IPv4。
+    优先无线网卡，其次物理以太网，最后才使用其他非虚拟适配器。
     """
     try:
         result = subprocess.run(
@@ -1003,10 +1003,19 @@ def get_local_ip() -> str:
             errors="ignore"
         )
         text = result.stdout.replace("\r\n", "\n")
-        blocks = re.split(r"\n(?=[^\n]*适配器)", text)
+        # 直接在中英文 adapter 标题前切分；不能按空行切，因为部分 Windows
+        # 版本会在网卡标题和字段之间也插入空行。
+        blocks = re.split(
+            r"(?im)(?=^[^\n]*(?:adapter|适配器)[^:\n]*:\s*$)",
+            text,
+        )
 
-        wifi_ip = None
-        ethernet_ip = None
+        ethernet_ip: Optional[str] = None
+        fallback_ip: Optional[str] = None
+        virtual_markers = (
+            "virtual", "vethernet", "vmware", "hyper-v", "bluetooth",
+            "loopback", "tunnel", "虚拟", "隧道", "蓝牙",
+        )
 
         for block in blocks:
             block_strip = block.strip()
@@ -1023,19 +1032,32 @@ def get_local_ip() -> str:
             if ip.startswith("169.254.") or ip == "127.0.0.1":
                 continue
 
-            if "无线局域网适配器" in title or "wlan" in title or "wi-fi" in title or "wifi" in title:
-                wifi_ip = ip
+            if (
+                "无线局域网适配器" in title
+                or "wireless lan" in title
+                or "wlan" in title
+                or "wi-fi" in title
+                or "wifi" in title
+            ):
                 print(f"[IP识别] 选择无线网卡: {title}")
-                print(f"[IP识别] IPv4: {wifi_ip}")
-                return wifi_ip
+                print(f"[IP识别] IPv4: {ip}")
+                return ip
 
-            if "以太网适配器" in title or "ethernet" in title:
-                ethernet_ip = ip
+            is_virtual = any(marker in title for marker in virtual_markers)
+            if not is_virtual and ("以太网适配器" in title or "ethernet adapter" in title):
+                ethernet_ip = ethernet_ip or ip
+            elif not is_virtual:
+                fallback_ip = fallback_ip or ip
 
         if ethernet_ip:
             print("[IP识别] 未找到无线网卡，改用以太网 IPv4")
             print(f"[IP识别] IPv4: {ethernet_ip}")
             return ethernet_ip
+
+        if fallback_ip:
+            print("[IP识别] 使用其他活动网卡 IPv4")
+            print(f"[IP识别] IPv4: {fallback_ip}")
+            return fallback_ip
 
     except Exception as e:
         print(f"[IP识别] 解析 ipconfig 失败: {e}")
