@@ -1,0 +1,198 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>手机拍照上传到电脑</title>
+  <style>
+    body {
+      font-family: Arial, "Microsoft YaHei", sans-serif;
+      margin: 0;
+      background: #f5f7fb;
+      color: #222;
+    }
+    .wrap {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 20px 16px 40px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+      margin-bottom: 14px;
+    }
+    h1 {
+      font-size: 22px;
+      margin: 0 0 8px;
+    }
+    .desc {
+      color: #666;
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 14px;
+    }
+    .btn {
+      width: 100%;
+      border: none;
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-size: 16px;
+      font-weight: bold;
+      background: #1677ff;
+      color: #fff;
+      cursor: pointer;
+    }
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .small {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #777;
+    }
+    .status {
+      min-height: 24px;
+      margin-top: 10px;
+      font-size: 14px;
+      line-height: 1.5;
+      color: #333;
+      white-space: pre-wrap;
+    }
+    .ok {
+      color: #0a8f3c;
+    }
+    .err {
+      color: #d93025;
+    }
+    .preview-box {
+      margin-top: 12px;
+      display: none;
+    }
+    .preview-box img {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid #eee;
+      background: #fafafa;
+    }
+    .filename {
+      font-size: 13px;
+      color: #666;
+      margin-top: 8px;
+      word-break: break-all;
+    }
+    .tips {
+      font-size: 13px;
+      line-height: 1.6;
+      color: #666;
+    }
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>手机拍照上传到电脑</h1>
+      <div class="desc">
+        点击下方按钮打开手机相机，拍完一张照片后会自动上传到电脑。
+      </div>
+
+      <!-- 隐藏的文件输入框：用 capture 调用手机相机 -->
+      <input
+        id="photoInput"
+        class="hidden"
+        type="file"
+        accept="image/*"
+        capture="environment"
+      />
+
+      <button id="openCameraBtn" class="btn">打开摄像头拍照</button>
+      <div class="small">说明：如果手机浏览器不直接打开相机，也会弹出“拍照/相册”选择。</div>
+
+      <div id="status" class="status">等待拍照...</div>
+
+      <div id="previewBox" class="preview-box">
+        <img id="previewImg" alt="上传后的图片预览" />
+        <div id="filenameText" class="filename"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="tips">
+        后续你可以在电脑端接入 AI 分析（构图、角度、人物位置建议），上传成功后自动调用接口处理。
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const photoInput = document.getElementById("photoInput");
+    const openCameraBtn = document.getElementById("openCameraBtn");
+    const statusEl = document.getElementById("status");
+    const previewBox = document.getElementById("previewBox");
+    const previewImg = document.getElementById("previewImg");
+    const filenameText = document.getElementById("filenameText");
+
+    function setStatus(text, type = "") {
+      statusEl.textContent = text;
+      statusEl.className = "status";
+      if (type === "ok") statusEl.classList.add("ok");
+      if (type === "err") statusEl.classList.add("err");
+    }
+
+    openCameraBtn.addEventListener("click", () => {
+      photoInput.click();
+    });
+
+    // 拍完/选完图片后自动上传
+    photoInput.addEventListener("change", async () => {
+      const file = photoInput.files && photoInput.files[0];
+      if (!file) {
+        setStatus("未选择图片。", "err");
+        return;
+      }
+
+      // 显示本地预览（拍完立刻看得到）
+      const localUrl = URL.createObjectURL(file);
+      previewImg.src = localUrl;
+      previewBox.style.display = "block";
+      filenameText.textContent = `本地图片：${file.name}（${Math.round(file.size / 1024)} KB）`;
+
+      setStatus("正在上传到电脑，请稍候...");
+      openCameraBtn.disabled = true;
+
+      try {
+        const formData = new FormData();
+        formData.append("photo", file);
+
+        const resp = await fetch("/upload", {
+          method: "POST",
+          body: formData
+        });
+
+        const data = await resp.json();
+
+        if (!resp.ok || !data.ok) {
+          throw new Error(data.msg || "上传失败");
+        }
+
+        // 显示服务器返回的预览图（电脑保存后的地址）
+        previewImg.src = data.preview_url + "?t=" + Date.now();
+        filenameText.textContent = `已保存到电脑：${data.filename}`;
+
+        setStatus("上传成功，图片已经传回电脑。", "ok");
+      } catch (err) {
+        console.error(err);
+        setStatus("上传失败：" + (err.message || err), "err");
+      } finally {
+        openCameraBtn.disabled = false;
+        // 清空 input，方便连续拍多张
+        photoInput.value = "";
+      }
+    });
+  </script>
+</body>
+</html>

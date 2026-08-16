@@ -1,0 +1,36 @@
+# Secrets and local configuration
+api_keys.json
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# IDE and OS metadata
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Runtime uploads and generated images
+uploads/
+static/sessions/
+static/latest_result.json
+static/qr_mobile.png
+static/qr_display.png
+
+# Logs and temporary files
+*.log
+*.pid
+*.tmp
+*.bak
+~*

@@ -1,0 +1,19 @@
+{
+  "DASHSCOPE_API_KEY": "",
+  "HUNYUAN_API_KEY": "",
+  "HUNYUAN_SECRET_ID": "",
+  "HUNYUAN_SECRET_KEY": "",
+  "DOUBAO_API_KEY": "",
+  "DOUBAO_IMAGE_URL": "https://ark.cn-beijing.volces.com/api/v3/images/generations",
+  "DOUBAO_IMAGE_MODEL": "doubao-seedream-5-0-260128",
+  "DOUBAO_IMAGE_FALLBACK_MODEL": "doubao-seedream-5-0-lite-260128",
+  "DOUBAO_ENDPOINT_ID": "",
+  "WAN_IMAGE_MODEL": "wan2.7-image",
+  "QWEN_IMAGE_MODEL": "qwen-image-2.0",
+  "QWEN_IMAGE_EDIT_MAX_MODEL": "qwen-image-edit-max",
+  "ESP_SCREEN_ENABLED": "1",
+  "ESP_SCREEN_IP": "",
+  "ESP_SCREEN_PORT": "80",
+  "ESP_SCREEN_ENDPOINT": "/img",
+  "ESP_SCREEN_SIZE": "320x240"
+}

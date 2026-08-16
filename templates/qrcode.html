@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>扫码进入页面</title>
+  <style>
+    body {
+      margin: 0;
+      background: #0f172a;
+      color: #e5e7eb;
+      font-family: Arial, "Microsoft YaHei", sans-serif;
+    }
+    .wrap {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 24px 16px;
+    }
+    .title {
+      font-size: 28px;
+      font-weight: bold;
+      margin-bottom: 16px;
+    }
+    .desc {
+      color: #cbd5e1;
+      line-height: 1.8;
+      margin-bottom: 20px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+    .card {
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 16px;
+      padding: 18px;
+    }
+    .card h2 {
+      margin-top: 0;
+      margin-bottom: 12px;
+      font-size: 22px;
+    }
+    .qr {
+      width: 100%;
+      max-width: 320px;
+      display: block;
+      background: white;
+      border-radius: 12px;
+      padding: 8px;
+      margin-bottom: 12px;
+    }
+    .url {
+      word-break: break-all;
+      color: #93c5fd;
+      line-height: 1.7;
+      font-size: 15px;
+    }
+    @media (max-width: 800px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="title">扫码进入页面</div>
+    <div class="desc">
+      手机和电脑连接同一个 Wi-Fi 后，可直接用手机扫描下面的二维码进入对应页面。
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>手机拍照页</h2>
+        <img class="qr" src="{{ qr_info.mobile_qr }}" alt="手机拍照页二维码" />
+        <div class="url">{{ qr_info.mobile_url }}</div>
+      </div>
+
+      <div class="card">
+        <h2>电脑显示页</h2>
+        <img class="qr" src="{{ qr_info.display_qr }}" alt="电脑显示页二维码" />
+        <div class="url">{{ qr_info.display_url }}</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

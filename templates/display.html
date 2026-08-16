@@ -1,0 +1,281 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>电脑显示页</title>
+  <style>
+    body {
+      margin: 0;
+      background: #0f172a;
+      color: #e5e7eb;
+      font-family: Arial, "Microsoft YaHei", sans-serif;
+    }
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+    .card {
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    h1 {
+      font-size: 24px;
+      margin: 0 0 12px;
+    }
+    h2 {
+      font-size: 18px;
+      margin: 0 0 12px;
+    }
+    .meta {
+      color: #94a3b8;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+    .single-preview-card {
+      max-width: 680px;
+      margin: 0 auto 14px;
+    }
+    .img-box img {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid #334155;
+      background: #000;
+      display: none;
+    }
+    .original-box img {
+      max-height: 560px;
+      object-fit: contain;
+    }
+    .empty {
+      color: #94a3b8;
+      font-size: 15px;
+      line-height: 1.8;
+    }
+    .err {
+      color: #fca5a5;
+      white-space: pre-wrap;
+      line-height: 1.7;
+    }
+    .compare-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .compare-item {
+      background: #0b1220;
+      border: 1px solid #243041;
+      border-radius: 12px;
+      padding: 12px;
+    }
+    .compare-title {
+      color: #93c5fd;
+      font-weight: bold;
+      margin-bottom: 10px;
+      font-size: 15px;
+    }
+    .compare-item img {
+      width: 100%;
+      aspect-ratio: 3 / 4;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      display: block;
+      background: #000;
+    }
+    .row {
+      background: #0b1220;
+      border: 1px solid #243041;
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+      line-height: 1.65;
+      font-size: 15px;
+    }
+    .label {
+      color: #93c5fd;
+      font-weight: bold;
+      display: block;
+      margin-bottom: 4px;
+    }
+    .big-action {
+      margin-top: 12px;
+      background: #1f2937;
+      border: 1px solid #374151;
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 20px;
+      line-height: 1.6;
+      color: #fef3c7;
+      font-weight: bold;
+    }
+    @media (max-width: 980px) {
+      .compare-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    @media (max-width: 700px) {
+      .compare-grid {
+        grid-template-columns: 1fr;
+      }
+      .single-preview-card {
+        max-width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>电脑显示页</h1>
+      <div class="meta" id="metaText">等待拍照上传...</div>
+    </div>
+
+    <div class="card single-preview-card">
+      <h2>最新拍摄图片</h2>
+      <div class="img-box original-box">
+        <img id="previewImg" alt="最新拍摄图片" />
+      </div>
+      <div id="previewEmpty" class="empty">暂无图片。</div>
+    </div>
+
+    <div class="card">
+      <h2>AI 生成图（最多4张）</h2>
+      <div id="compareEmpty" class="empty">暂无对比结果。</div>
+      <div id="compareGrid" class="compare-grid" style="display:none;"></div>
+    </div>
+
+    <div class="card">
+      <h2>文字摄影建议</h2>
+      <div id="errorBox" class="err" style="display:none;"></div>
+      <div id="emptyBox" class="empty">暂无数据，请先用手机拍照上传。</div>
+
+      <div id="contentBox" style="display:none;">
+        <div class="row">
+          <span class="label">画面概括</span>
+          <span id="scene_summary">-</span>
+        </div>
+
+        <div class="row">
+          <span class="label">人物位置分析</span>
+          <span id="subject_position_analysis">-</span>
+        </div>
+
+        <div class="row">
+          <span class="label">拍摄角度分析</span>
+          <span id="camera_angle_analysis">-</span>
+        </div>
+
+        <div class="row">
+          <span class="label">光照源推测</span>
+          <span id="light_source_inference">-</span>
+        </div>
+
+        <div class="row">
+          <span class="label">推荐拍摄位置</span>
+          <span id="recommended_shooting_position">-</span>
+        </div>
+
+        <div class="big-action">
+          调整建议：<span id="suggested_adjustment">-</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function setText(id, value) {
+      document.getElementById(id).textContent = value || "-";
+    }
+
+    function renderModelCandidates(data) {
+      const compareGrid = document.getElementById("compareGrid");
+      const compareEmpty = document.getElementById("compareEmpty");
+
+      let candidates = Array.isArray(data.model_candidates) ? data.model_candidates : [];
+      if (!candidates.length && data.diagram_url) {
+        candidates = [{ model: data.image_model || "AI结果", diagram_url: data.diagram_url }];
+      }
+      const displayCandidates = candidates
+        .filter((item) => item && item.diagram_url)
+        .slice(0, 4);
+
+      if (!displayCandidates.length) {
+        compareGrid.style.display = "none";
+        compareGrid.innerHTML = "";
+        compareEmpty.style.display = "block";
+        return;
+      }
+
+      const html = displayCandidates.map((item) => {
+        const model = item.model || "AI结果";
+        const imageUrl = item.diagram_url || "";
+        return `<div class="compare-item"><div class="compare-title">${model}</div><img src="${imageUrl}" alt="${model}" /></div>`;
+      }).join("");
+
+      compareGrid.innerHTML = html;
+      compareGrid.style.display = "grid";
+      compareEmpty.style.display = "none";
+    }
+
+    async function loadLatest() {
+      try {
+        const resp = await fetch("/api/latest_result?t=" + Date.now());
+        const data = await resp.json();
+        if (!resp.ok) return;
+
+        const metaText = document.getElementById("metaText");
+        const previewImg = document.getElementById("previewImg");
+        const previewEmpty = document.getElementById("previewEmpty");
+
+        const errorBox = document.getElementById("errorBox");
+        const emptyBox = document.getElementById("emptyBox");
+        const contentBox = document.getElementById("contentBox");
+
+        metaText.textContent =
+          `最近更新：${data.time || "--"}    阶段：${data.stage || "--"}    视觉模型：${data.vision_model || "--"}    生图模型：${data.image_model || "--"}`;
+
+        renderModelCandidates(data);
+
+        if (!data.ok) {
+          errorBox.style.display = "block";
+          errorBox.textContent = data.error || data.msg || "处理失败";
+          emptyBox.style.display = "none";
+          contentBox.style.display = "none";
+          return;
+        }
+
+        errorBox.style.display = "none";
+        emptyBox.style.display = "none";
+        contentBox.style.display = "block";
+
+        if (data.preview_url) {
+          previewImg.src = data.preview_url + "?t=" + Date.now();
+          previewImg.style.display = "block";
+          previewEmpty.style.display = "none";
+        } else {
+          previewImg.style.display = "none";
+          previewEmpty.style.display = "block";
+        }
+
+        const ai = data.ai_result || {};
+        setText("scene_summary", ai.scene_summary);
+        setText("subject_position_analysis", ai.subject_position_analysis);
+        setText("camera_angle_analysis", ai.camera_angle_analysis);
+        setText("light_source_inference", ai.light_source_inference);
+        setText("recommended_shooting_position", ai.recommended_shooting_position);
+        setText("suggested_adjustment", ai.suggested_adjustment);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    loadLatest();
+    setInterval(loadLatest, 2500);
+  </script>
+</body>
+</html>
