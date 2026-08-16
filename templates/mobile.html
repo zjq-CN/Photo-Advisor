@@ -135,6 +135,32 @@
       gap: 8px;
       margin-bottom: 10px;
     }
+    .intent-group {
+      margin: 12px 0 16px;
+      padding: 12px;
+      border: 1px solid #243041;
+      border-radius: 12px;
+      background: #0b1220;
+    }
+    .intent-group .sub-title {
+      margin-top: 0;
+      margin-bottom: 4px;
+      color: #dbeafe;
+      font-size: 15px;
+    }
+    .intent-help {
+      margin-bottom: 10px;
+      color: #94a3b8;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+    .intent-option-hint {
+      min-height: 1.5em;
+      margin-top: -2px;
+      color: #bfdbfe;
+      font-size: 12px;
+      line-height: 1.5;
+    }
     .chip {
       border: 1px solid #334155;
       background: #0b1220;
@@ -210,6 +236,10 @@
       border-radius: 10px;
       padding: 8px;
     }
+    .bottom-ai-item.selected {
+      border-color: #22c55e;
+      box-shadow: 0 0 0 1px rgba(34,197,94,0.35);
+    }
     .bottom-ai-title {
       color: #93c5fd;
       font-weight: bold;
@@ -220,12 +250,32 @@
     }
     .bottom-ai-item img {
       width: 100%;
-      aspect-ratio: 3 / 4;
-      object-fit: cover;
+      max-height: 360px;
+      object-fit: contain;
       border-radius: 8px;
       border: 1px solid #334155;
       background: #000;
       display: block;
+    }
+    .candidate-btn {
+      width: 100%;
+      margin-top: 8px;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: #172033;
+      color: #dbeafe;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .candidate-btn:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+    @media (max-width: 620px) {
+      .bottom-ai-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
   </style>
 </head>
@@ -258,7 +308,7 @@
         提示：如果没有直接进入相机，浏览器可能会弹出“拍照 / 相册”选项，这属于正常现象。
       </div>
       <div class="small-note">
-        示意图目前只在电脑显示页展示，后续可迁移到单片机屏幕。
+        生成结果会同步到电脑展示页；配置好 ESP 屏幕 IP 后也会自动推送到设备。
       </div>
     </div>
 
@@ -317,18 +367,8 @@
 
     <div id="intentSection" class="card">
       <h2>第二步：选择你的优化目标</h2>
-
-      <div class="sub-title">视觉目标</div>
-      <div id="visual_goal_chips" class="chips"></div>
-
-      <div class="sub-title">情绪风格</div>
-      <div id="emotion_style_chips" class="chips"></div>
-
-      <div class="sub-title">拍摄用途</div>
-      <div id="usage_type_chips" class="chips"></div>
-
-      <div class="sub-title">镜头倾向</div>
-      <div id="lens_preference_chips" class="chips"></div>
+      <div class="desc">选项会直接进入图像生成指令。系统只会强执行一个主目标，避免多种摄影技法相互冲突。</div>
+      <div id="intentGroups"></div>
 
       <button id="generateBtn" class="btn btn-secondary" type="button" disabled>生成专业策略与理想结果图</button>
       <div id="strategyPreview" class="strategy-box">请先拍照并完成基础诊断，按钮会自动解锁。</div>
@@ -337,6 +377,10 @@
 
     <div id="finalSection" class="card section">
       <h2>第三步：策略结果</h2>
+      <div class="row">
+        <span class="label">实际优化重点</span>
+        <span id="effective_goal">-</span>
+      </div>
       <div class="row">
         <span class="label">构图目标</span>
         <span id="composition_goal">-</span>
@@ -352,6 +396,10 @@
       <div class="row">
         <span class="label">人物位置与姿态</span>
         <span id="subject_plan">-</span>
+      </div>
+      <div class="row">
+        <span class="label">画幅与优化强度</span>
+        <span id="output_plan">-</span>
       </div>
     </div>
     <div id="bottomGallerySection" class="card">
@@ -389,36 +437,12 @@
     const bottomOriginalEmpty = document.getElementById("bottomOriginalEmpty");
     const bottomAiEmpty = document.getElementById("bottomAiEmpty");
     const bottomAiGrid = document.getElementById("bottomAiGrid");
+    const intentGroups = document.getElementById("intentGroups");
     let currentSessionId = "";
     let diagnosisComplete = false;
     let generationInProgress = false;
-    const selectedIntent = {
-      visual_goal: "更自然耐看",
-      emotion_style: "平静",
-      usage_type: "个人写真",
-      lens_preference: "更自然视角"
-    };
-
-    const intentOptions = {
-      visual_goal: [
-        "更自然耐看", "人物更突出", "背景虚化分离", "背景更壮观",
-        "引导线纵深", "框架构图", "前景层次", "画面更干净",
-        "对称稳定", "低角度张力", "显腿更长", "逆光轮廓", "更像电影镜头"
-      ],
-      emotion_style: [
-        "平静", "温暖", "快乐", "自信", "松弛", "专注",
-        "清爽", "惆怅", "神秘", "冷感", "高反差戏剧"
-      ],
-      usage_type: [
-        "个人写真", "日常头像", "职业头像", "社交头像", "旅行打卡",
-        "街拍人像", "夜景人像", "校园记录", "毕业纪念", "海报感", "形象照"
-      ],
-      lens_preference: [
-        "更自然视角", "35mm环境人像", "50mm标准纪实", "85mm半身人像",
-        "长焦浅景深", "更广角冲击", "低机位广角", "更突出人物",
-        "更压缩背景", "前景虚化层次"
-      ]
-    };
+    const intentSchema = {{ optimization_schema | tojson }};
+    const selectedIntent = {{ default_user_intent | tojson }};
 
     function setStatus(text, type = "") {
       statusEl.textContent = text;
@@ -455,6 +479,36 @@
       bottomAiEmpty.style.display = "block";
     }
 
+    async function chooseAndPushCandidate(item, card, button) {
+      const imageRef = (item && item.diagram_url || "").trim();
+      if (!imageRef) return;
+      try {
+        button.disabled = true;
+        button.textContent = "正在推送...";
+        const resp = await fetch("/api/push_latest_to_esp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image_ref: imageRef, include_all: false })
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data.ok) {
+          throw new Error(data.msg || "推送失败");
+        }
+        bottomAiGrid.querySelectorAll(".bottom-ai-item").forEach((node) => node.classList.remove("selected"));
+        bottomAiGrid.querySelectorAll(".candidate-btn").forEach((node) => {
+          node.textContent = "选为屏幕主图";
+        });
+        card.classList.add("selected");
+        button.textContent = "已选为屏幕主图";
+        setGenerateStatus(`已推送 ${item.model || "AI结果"} 到设备屏幕。`, "ok");
+      } catch (err) {
+        button.textContent = "重试推送";
+        setGenerateStatus("推送失败：" + (err.message || err), "err");
+      } finally {
+        button.disabled = false;
+      }
+    }
+
     function renderBottomGallery(data, showGeneratedImages = false) {
       if (!data) return;
 
@@ -481,11 +535,32 @@
         return;
       }
 
-      bottomAiGrid.innerHTML = displayCandidates.map((item) => {
+      bottomAiGrid.innerHTML = "";
+      displayCandidates.forEach((item) => {
         const model = item.model || "AI结果";
-        const imageUrl = toDisplayUrl(item.diagram_url || "");
-        return `<div class="bottom-ai-item"><div class="bottom-ai-title">${model}</div><img src="${imageUrl}" alt="${model}" /></div>`;
-      }).join("");
+        const isPrimary = item.diagram_url === data.diagram_url;
+        const card = document.createElement("div");
+        card.className = "bottom-ai-item" + (isPrimary ? " selected" : "");
+
+        const title = document.createElement("div");
+        title.className = "bottom-ai-title";
+        title.textContent = model + (isPrimary ? " · 系统首选" : "");
+        card.appendChild(title);
+
+        const img = document.createElement("img");
+        img.src = toDisplayUrl(item.diagram_url || "");
+        img.alt = model;
+        img.loading = "lazy";
+        card.appendChild(img);
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "candidate-btn";
+        button.textContent = isPrimary ? "当前屏幕主图" : "选为屏幕主图";
+        button.addEventListener("click", () => chooseAndPushCandidate(item, card, button));
+        card.appendChild(button);
+        bottomAiGrid.appendChild(card);
+      });
       bottomAiGrid.style.display = "grid";
       bottomAiEmpty.style.display = "none";
     }
@@ -544,28 +619,65 @@
       }
     }
 
-    function renderChips(groupKey) {
+    function selectedIntentSummary() {
+      return intentSchema.map((group) => {
+        const selected = group.options.find((option) => option.value === selectedIntent[group.key]);
+        return `${group.label}：${selected ? selected.label : "-"}`;
+      }).join(" / ");
+    }
+
+    function renderChips(group) {
+      const groupKey = group.key;
       const wrap = document.getElementById(groupKey + "_chips");
+      const selectedHint = document.getElementById(groupKey + "_hint");
       wrap.innerHTML = "";
-      intentOptions[groupKey].forEach((item) => {
+      group.options.forEach((option) => {
         const btn = document.createElement("button");
         btn.type = "button";
-        btn.className = "chip" + (selectedIntent[groupKey] === item ? " active" : "");
-        btn.textContent = item;
+        btn.className = "chip" + (selectedIntent[groupKey] === option.value ? " active" : "");
+        btn.textContent = option.label;
+        btn.title = option.hint || "";
+        btn.setAttribute("aria-pressed", selectedIntent[groupKey] === option.value ? "true" : "false");
         btn.addEventListener("click", () => {
-          selectedIntent[groupKey] = item;
-          renderChips(groupKey);
-          strategyPreview.textContent =
-            `已选择：${selectedIntent.visual_goal} / ${selectedIntent.emotion_style} / ${selectedIntent.usage_type} / ${selectedIntent.lens_preference}`;
+          selectedIntent[groupKey] = option.value;
+          renderChips(group);
+          strategyPreview.textContent = `已选择：${selectedIntentSummary()}`;
         });
         wrap.appendChild(btn);
       });
+      const selected = group.options.find((option) => option.value === selectedIntent[groupKey]);
+      selectedHint.textContent = selected && selected.hint ? `当前作用：${selected.hint}` : "";
     }
 
     function renderAllChips() {
-      Object.keys(intentOptions).forEach((groupKey) => renderChips(groupKey));
-      strategyPreview.textContent =
-        `已选择：${selectedIntent.visual_goal} / ${selectedIntent.emotion_style} / ${selectedIntent.usage_type} / ${selectedIntent.lens_preference}`;
+      intentGroups.innerHTML = "";
+      intentSchema.forEach((group) => {
+        const section = document.createElement("section");
+        section.className = "intent-group";
+
+        const title = document.createElement("div");
+        title.className = "sub-title";
+        title.textContent = group.label;
+        section.appendChild(title);
+
+        const help = document.createElement("div");
+        help.className = "intent-help";
+        help.textContent = group.help || "";
+        section.appendChild(help);
+
+        const chips = document.createElement("div");
+        chips.id = group.key + "_chips";
+        chips.className = "chips";
+        section.appendChild(chips);
+
+        const selectedHint = document.createElement("div");
+        selectedHint.id = group.key + "_hint";
+        selectedHint.className = "intent-option-hint";
+        section.appendChild(selectedHint);
+        intentGroups.appendChild(section);
+        renderChips(group);
+      });
+      strategyPreview.textContent = `已选择：${selectedIntentSummary()}`;
     }
 
     captureBtn.addEventListener("click", () => {
@@ -670,10 +782,12 @@
         }
 
         const strategy = data.strategy_plan || {};
+        setField("effective_goal", strategy.effective_goal_label || strategy.optimization_goal_label);
         setField("composition_goal", strategy.composition_goal);
         setField("camera_plan", `${strategy.camera_height || "-"} + ${strategy.camera_angle || "-"}`);
         setField("lens_plan", `${strategy.lens_feel || "-"} / ${strategy.shot_size_target || "-"}`);
         setField("subject_plan", `${strategy.subject_position_target || "-"}；${strategy.pose_strategy || "-"}`);
+        setField("output_plan", `${strategy.output_ratio_label || "-"} / ${strategy.edit_strength_label || "-"}`);
         finalSection.style.display = "block";
         renderBottomGallery(data, true);
         setGenerateStatus("生成完成 ✅ 电脑端已同步显示结果图。", "ok");

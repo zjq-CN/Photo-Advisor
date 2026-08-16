@@ -63,7 +63,7 @@
     }
     .compare-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 14px;
     }
     .compare-item {
@@ -71,6 +71,10 @@
       border: 1px solid #243041;
       border-radius: 12px;
       padding: 12px;
+    }
+    .compare-item.selected {
+      border-color: #22c55e;
+      box-shadow: 0 0 0 1px rgba(34,197,94,0.35);
     }
     .compare-title {
       color: #93c5fd;
@@ -80,12 +84,34 @@
     }
     .compare-item img {
       width: 100%;
-      aspect-ratio: 3 / 4;
-      object-fit: cover;
+      max-height: 560px;
+      object-fit: contain;
       border-radius: 8px;
       border: 1px solid #334155;
       display: block;
       background: #000;
+    }
+    .candidate-meta {
+      margin-top: 8px;
+      min-height: 1.5em;
+      color: #94a3b8;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .candidate-btn {
+      width: 100%;
+      margin-top: 8px;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 9px 10px;
+      background: #172033;
+      color: #dbeafe;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .candidate-btn:disabled {
+      opacity: 0.6;
+      cursor: wait;
     }
     .row {
       background: #0b1220;
@@ -171,6 +197,16 @@
         </div>
 
         <div class="row">
+          <span class="label">景别匹配分析</span>
+          <span id="shot_size_analysis">-</span>
+        </div>
+
+        <div class="row">
+          <span class="label">构图问题诊断</span>
+          <span id="composition_analysis">-</span>
+        </div>
+
+        <div class="row">
           <span class="label">光照源推测</span>
           <span id="light_source_inference">-</span>
         </div>
@@ -183,6 +219,11 @@
         <div class="big-action">
           调整建议：<span id="suggested_adjustment">-</span>
         </div>
+
+        <div class="row" style="margin-top:12px;">
+          <span class="label">本次实际优化</span>
+          <span id="effective_plan">等待生成</span>
+        </div>
       </div>
     </div>
   </div>
@@ -190,6 +231,51 @@
   <script>
     function setText(id, value) {
       document.getElementById(id).textContent = value || "-";
+    }
+
+    function toDisplayUrl(url) {
+      if (!url) return "";
+      try {
+        const parsed = new URL(url, window.location.origin);
+        const isLocal = parsed.origin === window.location.origin &&
+          (parsed.pathname.startsWith("/uploads/") || parsed.pathname.startsWith("/static/"));
+        if (isLocal) {
+          parsed.searchParams.set("_t", String(Date.now()));
+          return parsed.toString();
+        }
+        return url;
+      } catch (e) {
+        return url;
+      }
+    }
+
+    async function chooseAndPushCandidate(item, card, button) {
+      const imageRef = (item && item.diagram_url || "").trim();
+      if (!imageRef) return;
+      try {
+        button.disabled = true;
+        button.textContent = "正在推送...";
+        const response = await fetch("/api/push_latest_to_esp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image_ref: imageRef, include_all: false })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.ok) {
+          throw new Error(result.msg || "推送失败");
+        }
+        document.querySelectorAll(".compare-item").forEach((node) => node.classList.remove("selected"));
+        document.querySelectorAll(".candidate-btn").forEach((node) => {
+          node.textContent = "推送为屏幕主图";
+        });
+        card.classList.add("selected");
+        button.textContent = "已推送为屏幕主图";
+      } catch (error) {
+        button.textContent = "重试推送";
+        window.alert("推送失败：" + (error.message || error));
+      } finally {
+        button.disabled = false;
+      }
     }
 
     function renderModelCandidates(data) {
@@ -211,13 +297,44 @@
         return;
       }
 
-      const html = displayCandidates.map((item) => {
+      compareGrid.innerHTML = "";
+      displayCandidates.forEach((item) => {
         const model = item.model || "AI结果";
         const imageUrl = item.diagram_url || "";
-        return `<div class="compare-item"><div class="compare-title">${model}</div><img src="${imageUrl}" alt="${model}" /></div>`;
-      }).join("");
+        const isPrimary = imageUrl === data.diagram_url;
 
-      compareGrid.innerHTML = html;
+        const card = document.createElement("div");
+        card.className = "compare-item" + (isPrimary ? " selected" : "");
+
+        const title = document.createElement("div");
+        title.className = "compare-title";
+        title.textContent = model + (isPrimary ? " · 系统首选" : "");
+        card.appendChild(title);
+
+        const image = document.createElement("img");
+        image.src = toDisplayUrl(imageUrl);
+        image.alt = model;
+        image.loading = "lazy";
+        card.appendChild(image);
+
+        const meta = document.createElement("div");
+        meta.className = "candidate-meta";
+        const score = Number(item.quality_score);
+        meta.textContent = Number.isFinite(score) && score > -900
+          ? `本地技术评分：${score.toFixed(2)}`
+          : "由用户观察人物一致性和目标完成度";
+        card.appendChild(meta);
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "candidate-btn";
+        button.textContent = isPrimary ? "当前屏幕主图（可重推）" : "推送为屏幕主图";
+        button.addEventListener("click", () => chooseAndPushCandidate(item, card, button));
+        card.appendChild(button);
+
+        compareGrid.appendChild(card);
+      });
+
       compareGrid.style.display = "grid";
       compareEmpty.style.display = "none";
     }
@@ -266,9 +383,20 @@
         setText("scene_summary", ai.scene_summary);
         setText("subject_position_analysis", ai.subject_position_analysis);
         setText("camera_angle_analysis", ai.camera_angle_analysis);
+        setText("shot_size_analysis", ai.shot_size_analysis);
+        setText("composition_analysis", ai.composition_analysis);
         setText("light_source_inference", ai.light_source_inference);
         setText("recommended_shooting_position", ai.recommended_shooting_position);
         setText("suggested_adjustment", ai.suggested_adjustment);
+        const strategy = data.strategy_plan || {};
+        const effectiveParts = [
+          strategy.effective_goal_label,
+          strategy.shot_type_label,
+          strategy.mood_style_label,
+          strategy.output_ratio_label,
+          strategy.edit_strength_label
+        ].filter(Boolean);
+        setText("effective_plan", effectiveParts.length ? effectiveParts.join(" / ") : "等待生成");
       } catch (e) {
         console.error(e);
       }

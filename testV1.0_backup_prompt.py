@@ -31,14 +31,18 @@ except ImportError:
 # =========================
 # 基础配置
 # =========================
-UPLOAD_FOLDER = "uploads"
-STATIC_FOLDER = "static"
+# 所有本地路径都锚定主程序目录，避免从上级目录或快捷方式启动时，
+# 上传图、会话和配置文件被写到意外位置。
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
+STATIC_FOLDER = os.path.join(BASE_DIR, "static")
+TEMPLATE_FOLDER = os.path.join(BASE_DIR, "templates")
 LATEST_RESULT_JSON = os.path.join(STATIC_FOLDER, "latest_result.json")
 SESSION_FOLDER = os.path.join(STATIC_FOLDER, "sessions")
 
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
 MAX_CONTENT_LENGTH = 15 * 1024 * 1024  # 15MB
-API_KEYS_FILE = os.path.join(os.path.dirname(__file__), "api_keys.json")
+API_KEYS_FILE = os.path.join(BASE_DIR, "api_keys.json")
 
 
 def load_api_keys_file() -> Dict[str, str]:
@@ -234,7 +238,90 @@ IMAGE_EDIT_MODELS = [
 MODEL_COMPARE_ENABLED_DEFAULT = True
 MODEL_COMPARE_LIST = list(IMAGE_EDIT_MODELS)
 
-app = Flask(__name__)
+# 优化选项的唯一数据源。前端从这里渲染，后端也用同一份数据验证，
+# 避免再出现“界面有选项，后端却没有实现”的版本错位。
+OPTIMIZATION_SCHEMA: List[Dict[str, Any]] = [
+    {
+        "key": "optimization_goal",
+        "label": "优先改善",
+        "help": "选一个最想解决的问题；不确定时交给系统自动判断。",
+        "options": [
+            {"value": "auto", "label": "按诊断自动优化", "hint": "优先修正基础诊断中最明显的问题"},
+            {"value": "composition", "label": "构图与裁切", "hint": "调整主体位置、留白、水平线和画面边缘"},
+            {"value": "subject", "label": "人物更突出", "hint": "提高人物权重，弱化背景干扰"},
+            {"value": "lighting", "label": "光线与肤色", "hint": "优化曝光、明暗层次、白平衡与真实肤色"},
+            {"value": "background", "label": "背景减干扰", "hint": "通过裁切和轻微柔化减少杂乱，不删除关键元素"},
+            {"value": "clarity", "label": "清晰度与降噪", "hint": "优化对焦感、细节和暗部噪点，避免过度锐化"},
+        ],
+    },
+    {
+        "key": "shot_type",
+        "label": "目标景别",
+        "help": "用直观的景别代替 35mm/50mm/85mm 等难以稳定模拟的镜头术语。",
+        "options": [
+            {"value": "keep", "label": "保持原景别", "hint": "尽量不改变原图人物占比"},
+            {"value": "headshot", "label": "头像特写", "hint": "头肩为主，面部识别度优先"},
+            {"value": "half_body", "label": "半身人像", "hint": "头肩与上半身姿态兼顾"},
+            {"value": "full_body", "label": "全身人像", "hint": "保留完整姿态和自然身体比例"},
+            {"value": "environmental", "label": "环境人像", "hint": "保留更多环境信息与空间层次"},
+        ],
+    },
+    {
+        "key": "mood_style",
+        "label": "画面氛围",
+        "help": "只调整色调和对比，不强行改变人物表情。",
+        "options": [
+            {"value": "keep", "label": "保持原色", "hint": "保留原图色温与氛围"},
+            {"value": "natural", "label": "自然通透", "hint": "中性真实，明暗清晰"},
+            {"value": "warm", "label": "温暖柔和", "hint": "轻微暖色，降低生硬感"},
+            {"value": "fresh", "label": "清爽明亮", "hint": "色彩干净轻盈，不过曝"},
+            {"value": "cool", "label": "冷调克制", "hint": "轻微冷调，保持真实肤色"},
+            {"value": "cinematic", "label": "电影质感", "hint": "克制的对比和层次，不新增戏剧光源"},
+        ],
+    },
+    {
+        "key": "output_ratio",
+        "label": "输出画幅",
+        "help": "4:3 与项目的 320×240 屏幕直接匹配，可避免二次旋转和大幅裁切。",
+        "options": [
+            {"value": "source", "label": "跟随原图", "hint": "尽量保持原图横竖比例"},
+            {"value": "screen_4_3", "label": "4:3 设备屏幕", "hint": "直接适配 320×240 横屏"},
+            {"value": "portrait_3_4", "label": "3:4 竖版人像", "hint": "适合竖屏人像展示"},
+            {"value": "square_1_1", "label": "1:1 方形头像", "hint": "适合头像和方形预览"},
+            {"value": "landscape_16_9", "label": "16:9 横向环境", "hint": "适合展示环境和叙事留白"},
+        ],
+    },
+    {
+        "key": "edit_strength",
+        "label": "优化强度",
+        "help": "控制裁切、透视、色彩和背景弱化幅度。",
+        "options": [
+            {"value": "conservative", "label": "保守", "hint": "最大限度保留原图，只修正明显问题"},
+            {"value": "standard", "label": "标准", "hint": "可感知但自然的优化"},
+            {"value": "strong", "label": "明显", "hint": "更明显的裁切与层次优化，仍不换人换景"},
+        ],
+    },
+]
+
+DEFAULT_USER_INTENT: Dict[str, str] = {
+    "optimization_goal": "auto",
+    "shot_type": "keep",
+    "mood_style": "keep",
+    "output_ratio": "screen_4_3",
+    "edit_strength": "standard",
+}
+
+OPTIMIZATION_OPTION_MAP: Dict[str, Dict[str, Dict[str, str]]] = {
+    group["key"]: {option["value"]: option for option in group["options"]}
+    for group in OPTIMIZATION_SCHEMA
+}
+
+app = Flask(
+    __name__,
+    template_folder=TEMPLATE_FOLDER,
+    static_folder=STATIC_FOLDER,
+    static_url_path="/static",
+)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
 
@@ -251,6 +338,16 @@ def save_latest_result(payload: dict) -> None:
         json.dump(payload, f, ensure_ascii=False, indent=2)
 
 
+SESSION_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+def validate_session_id(session_id: str) -> str:
+    clean = str(session_id or "").strip()
+    if not SESSION_ID_PATTERN.fullmatch(clean):
+        raise ValueError("session_id 格式不正确")
+    return clean
+
+
 def build_upload_filename(raw_filename: str) -> str:
     if "." in raw_filename:
         ext = raw_filename.rsplit(".", 1)[1].lower()
@@ -265,13 +362,15 @@ def build_upload_filename(raw_filename: str) -> str:
 
 
 def save_session_data(session_id: str, payload: Dict[str, Any]) -> None:
-    session_path = os.path.join(SESSION_FOLDER, f"{session_id}.json")
+    safe_session_id = validate_session_id(session_id)
+    session_path = os.path.join(SESSION_FOLDER, f"{safe_session_id}.json")
     with open(session_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
 
 
 def load_session_data(session_id: str) -> Dict[str, Any]:
-    session_path = os.path.join(SESSION_FOLDER, f"{session_id}.json")
+    safe_session_id = validate_session_id(session_id)
+    session_path = os.path.join(SESSION_FOLDER, f"{safe_session_id}.json")
     if not os.path.exists(session_path):
         raise FileNotFoundError("未找到对应会话，请先拍照诊断。")
     with open(session_path, "r", encoding="utf-8") as f:
@@ -726,34 +825,23 @@ def build_screen_jpeg(image_bytes: bytes, target_w: int, target_h: int, quality:
         raise RuntimeError("图片解码失败，无法发送到屏幕")
 
     src_h, src_w = img.shape[:2]
-    rotated = False
-    # ESP 屏幕默认按横向展示；遇到竖图先旋转 90 度再做适配。
-    if src_h > src_w:
-        img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
-        rotated = True
-        src_h, src_w = img.shape[:2]
-
-    src_ratio = float(src_w) / float(src_h)
-    target_ratio = float(target_w) / float(target_h)
-
-    # 先按比例居中裁剪，再缩放到屏幕分辨率，效果更接近 ImageOps.fit
-    if src_ratio > target_ratio:
-        crop_w = max(1, int(src_h * target_ratio))
-        x0 = max(0, (src_w - crop_w) // 2)
-        img = img[:, x0:x0 + crop_w]
-    else:
-        crop_h = max(1, int(src_w / target_ratio))
-        y0 = max(0, (src_h - crop_h) // 2)
-        img = img[y0:y0 + crop_h, :]
-
-    interp = cv2.INTER_AREA if (img.shape[1] > target_w or img.shape[0] > target_h) else cv2.INTER_LINEAR
-    frame = cv2.resize(img, (target_w, target_h), interpolation=interp)
+    # 不再为适配横屏而旋转竖图，否则人物会横倒。
+    # 使用 contain + 居中留黑边，完整保留人物和构图；4:3 输出则会恰好铺满屏幕。
+    scale = min(float(target_w) / float(src_w), float(target_h) / float(src_h))
+    resized_w = max(1, min(target_w, int(round(src_w * scale))))
+    resized_h = max(1, min(target_h, int(round(src_h * scale))))
+    interp = cv2.INTER_AREA if scale < 1.0 else cv2.INTER_LINEAR
+    resized = cv2.resize(img, (resized_w, resized_h), interpolation=interp)
+    frame = np.zeros((target_h, target_w, 3), dtype=np.uint8)
+    x0 = (target_w - resized_w) // 2
+    y0 = (target_h - resized_h) // 2
+    frame[y0:y0 + resized_h, x0:x0 + resized_w] = resized
 
     jpeg_quality = min(95, max(50, int(quality)))
     ok, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), jpeg_quality])
     if not ok:
         raise RuntimeError("JPEG 编码失败，无法发送到屏幕")
-    return buf.tobytes(), rotated
+    return buf.tobytes(), False
 
 
 def push_image_to_esp(image_ref: str, append: bool = False) -> Tuple[bool, str]:
@@ -822,11 +910,19 @@ def build_esp_push_queue(
     return queue
 
 
-def evaluate_image_quality(model_name: str, image_url: str) -> Tuple[float, str]:
+def evaluate_image_quality(
+    model_name: str,
+    image_url: str,
+    generation_settings: Optional[Dict[str, Any]] = None,
+    user_intent: Optional[Dict[str, str]] = None,
+) -> Tuple[float, str]:
+    _ = model_name
     img = load_image_from_url_for_quality(image_url)
     if img is None or img.size == 0:
         return -999.0, "图片不可读取"
 
+    height, width = img.shape[:2]
+    actual_aspect = float(width) / float(max(1, height))
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     lap_var = float(cv2.Laplacian(gray, cv2.CV_64F).var())
     col_signal = gray.mean(axis=0)
@@ -836,10 +932,13 @@ def evaluate_image_quality(model_name: str, image_url: str) -> Tuple[float, str]
     stripe_ratio = col_std / (row_std + 1e-6)
     edges = cv2.Canny(gray, 70, 140)
     edge_density = float(np.mean(edges > 0))
+    mean_luma = float(np.mean(gray))
+    clipped_dark = float(np.mean(gray <= 5))
+    clipped_light = float(np.mean(gray >= 250))
 
-    # 只根据实际输出图评分，不给任何模型预设加分。
-    # 评分相同时保留 MODEL_COMPARE_LIST 中靠前的模型。
+    # 只根据实际输出图和用户选择评分，不给任何模型预设加分。
     score = 0.0
+    goal = (user_intent or {}).get("optimization_goal", "auto")
 
     if lap_var < 12:
         score -= 1.2
@@ -847,6 +946,8 @@ def evaluate_image_quality(model_name: str, image_url: str) -> Tuple[float, str]
         score -= 0.8
     else:
         score += 0.4
+    if goal == "clarity" and 35 <= lap_var <= 800:
+        score += 0.6
 
     if stripe_ratio > 2.2 and edge_density > 0.07:
         score -= 4.0
@@ -859,7 +960,30 @@ def evaluate_image_quality(model_name: str, image_url: str) -> Tuple[float, str]
     else:
         score += 0.3
 
-    return score, f"ok ratio={stripe_ratio:.2f}, edge={edge_density:.3f}, lap={lap_var:.1f}"
+    if mean_luma < 35 or mean_luma > 225:
+        score -= 1.0
+    elif 60 <= mean_luma <= 200:
+        score += 0.25
+    if clipped_dark + clipped_light > 0.20:
+        score -= 0.8
+    elif goal == "lighting" and clipped_dark + clipped_light < 0.08:
+        score += 0.7
+
+    expected_aspect = (generation_settings or {}).get("expected_ratio")
+    aspect_error = 0.0
+    if isinstance(expected_aspect, (int, float)) and expected_aspect > 0:
+        aspect_error = abs(actual_aspect - float(expected_aspect)) / float(expected_aspect)
+        if aspect_error <= 0.03:
+            score += 1.0
+        elif aspect_error <= 0.08:
+            score += 0.25
+        else:
+            score -= min(2.0, aspect_error * 4.0)
+
+    return score, (
+        f"ok artifact={stripe_ratio:.2f}, edge={edge_density:.3f}, lap={lap_var:.1f}, "
+        f"luma={mean_luma:.1f}, aspect={actual_aspect:.3f}, aspect_err={aspect_error:.3f}"
+    )
 
 
 # =========================
@@ -962,13 +1086,15 @@ def build_analysis_prompt() -> str:
 请重点完成以下任务：
 1. 判断人物在画面中的位置（偏左、偏右、居中，是否过高、过低，留白是否合理）。
 2. 判断当前拍摄角度（平拍、俯拍、仰拍、正面、侧面、斜侧等），并说明是否合适。
-3. 结合画面中的明暗、阴影、受光面、背景高光、窗户、灯具、太阳方向等线索，判断主要光照源方向是否明确：
+3. 判断当前景别（头像特写、半身、全身或环境人像），说明人物占比和裁切是否合理。
+4. 单独评估构图问题，重点检查头顶留白、画面边缘、前景遮挡、水平垂直线和背景干扰。
+5. 结合画面中的明暗、阴影、受光面、背景高光、窗户、灯具、太阳方向等线索，判断主要光照源方向是否明确：
    - 如果能够明确判断，就输出主要光照源方向及依据；
    - 如果光源位置不明显、明暗关系不明显、无法可靠判断，就明确写“光源方向不明显”或“无法明确判断”，不要强行推测。
-4. 给出摄影师下一步应该如何调整拍摄位置和机位。
-5. 给出人物下一步应该如何调整位置和姿态。
-6. 判断主体人物的明显性别呈现特征，并输出 subject_gender，仅可填写“男性”或“女性”。
-7. 额外输出一段 ideal_image_prompt，用于描述“按照建议调整后，理想拍摄结果应该呈现出的画面”。
+6. 给出摄影师下一步应该如何调整拍摄位置和机位。
+7. 给出人物下一步应该如何调整位置和姿态。
+8. 判断主体人物的明显性别呈现特征，并输出 subject_gender，仅可填写“男性”或“女性”。
+9. 额外输出一段 ideal_image_prompt，用于描述“按照建议调整后，理想拍摄结果应该呈现出的画面”。
 
 请严格只输出 JSON，不要输出解释文字，不要加 markdown 代码块。
 JSON 结构必须完全遵循下面的 key：
@@ -978,6 +1104,8 @@ JSON 结构必须完全遵循下面的 key：
   "subject_gender": "男性或女性",
   "subject_position_analysis": "人物在当前画面中的位置分析",
   "camera_angle_analysis": "当前拍摄角度分析",
+  "shot_size_analysis": "当前景别、人物占比和裁切分析",
+  "composition_analysis": "构图问题诊断，重点判断头顶留白、人物偏移、前景遮挡和画面边线",
   "light_source_inference": "主要光照源方向及依据；若无法判断则明确写光源方向不明显",
   "recommended_shooting_position": "摄影师下一步的机位和站位建议",
   "suggested_adjustment": "人物和相机分别应如何调整",
@@ -1173,157 +1301,227 @@ def call_vision_auto(image_path: str) -> Tuple[Dict[str, str], str]:
 # 第二次图像编辑提示词
 # =========================
 def normalize_user_intent(raw_intent: Dict[str, Any]) -> Dict[str, str]:
-    visual_goal = str(raw_intent.get("visual_goal", "")).strip() or "更自然耐看"
-    emotion_style = str(raw_intent.get("emotion_style", "")).strip() or "平静"
-    usage_type = str(raw_intent.get("usage_type", "")).strip() or "个人写真"
-    lens_preference = str(raw_intent.get("lens_preference", "")).strip() or "更自然视角"
-    return {
-        "visual_goal": visual_goal,
-        "emotion_style": emotion_style,
-        "usage_type": usage_type,
-        "lens_preference": lens_preference,
+    if not isinstance(raw_intent, dict):
+        raw_intent = {}
+
+    legacy_goal_map = {
+        "更自然耐看": "auto",
+        "人物更突出": "subject",
+        "背景虚化分离": "background",
+        "背景更壮观": "composition",
+        "引导线纵深": "composition",
+        "框架构图": "composition",
+        "前景层次": "composition",
+        "画面更干净": "background",
+        "对称稳定": "composition",
+        "低角度张力": "composition",
+        "显腿更长": "composition",
+        "逆光轮廓": "lighting",
+        "更像电影镜头": "composition",
+    }
+    legacy_mood_map = {
+        "温暖": "warm",
+        "清爽": "fresh",
+        "冷感": "cool",
+        "高反差戏剧": "cinematic",
+        "平静": "natural",
+    }
+    legacy_shot_map = {
+        "日常头像": "headshot",
+        "职业头像": "headshot",
+        "社交头像": "headshot",
+        "形象照": "half_body",
+        "85mm半身人像": "half_body",
+        "旅行打卡": "environmental",
+        "街拍人像": "environmental",
+        "夜景人像": "environmental",
+        "校园记录": "environmental",
+        "毕业纪念": "environmental",
+        "35mm环境人像": "environmental",
     }
 
+    migrated: Dict[str, Any] = dict(raw_intent)
+    if not migrated.get("optimization_goal"):
+        migrated["optimization_goal"] = legacy_goal_map.get(
+            str(migrated.get("visual_goal", "")).strip(),
+            DEFAULT_USER_INTENT["optimization_goal"],
+        )
+    if not migrated.get("mood_style"):
+        migrated["mood_style"] = legacy_mood_map.get(
+            str(migrated.get("emotion_style", "")).strip(),
+            DEFAULT_USER_INTENT["mood_style"],
+        )
+    if not migrated.get("shot_type"):
+        old_usage = str(migrated.get("usage_type", "")).strip()
+        old_lens = str(migrated.get("lens_preference", "")).strip()
+        migrated["shot_type"] = legacy_shot_map.get(
+            old_usage,
+            legacy_shot_map.get(old_lens, DEFAULT_USER_INTENT["shot_type"]),
+        )
 
-def build_expression_hint(emotion_style: str) -> str:
-    mapping = {
-        "快乐": "建议轻微上扬嘴角，眼神聚焦镜头并带轻微神采",
-        "平静": "建议保持自然中性表情，眼神聚焦镜头，呼吸放松",
-        "惆怅": "建议嘴角轻微收敛，视线略微放空",
-        "神秘": "建议表情克制，目光轻微偏离镜头",
-        "温暖": "建议微笑不露齿，眼神柔和且有微光",
-        "冷感": "建议表情平稳，目光清冷但保持聚焦",
+    normalized: Dict[str, str] = {}
+    for key, default_value in DEFAULT_USER_INTENT.items():
+        requested = str(migrated.get(key, "")).strip()
+        allowed = OPTIMIZATION_OPTION_MAP[key]
+        normalized[key] = requested if requested in allowed else default_value
+    return normalized
+
+
+def intent_option_label(key: str, value: str) -> str:
+    option = OPTIMIZATION_OPTION_MAP.get(key, {}).get(value, {})
+    return str(option.get("label", value))
+
+
+def infer_automatic_goal(ai_result: Dict[str, str]) -> str:
+    evidence = " ".join([
+        ai_result.get("subject_position_analysis", ""),
+        ai_result.get("camera_angle_analysis", ""),
+        ai_result.get("shot_size_analysis", ""),
+        ai_result.get("composition_analysis", ""),
+        ai_result.get("light_source_inference", ""),
+        ai_result.get("suggested_adjustment", ""),
+    ]).lower()
+    keywords = {
+        "clarity": ["模糊", "对焦", "噪点", "噪声", "不清晰", "抖动"],
+        "lighting": ["过暗", "过曝", "逆光", "曝光", "阴影", "高光", "肤色", "白平衡"],
+        "background": ["背景杂乱", "背景干扰", "杂物", "遮挡", "边缘干扰"],
+        "subject": ["人物太小", "主体不突出", "人物不突出", "主体占比"],
+        "composition": ["构图", "留白", "偏左", "偏右", "过高", "过低", "倾斜", "水平线", "垂直线"],
     }
-    return mapping.get(emotion_style, "建议保持自然表情，眼神聚焦镜头并轻微提神")
-
-
-def build_composition_methods(user_intent: Dict[str, str]) -> str:
-    visual_goal = user_intent.get("visual_goal", "")
-    lens_pref = user_intent.get("lens_preference", "")
-    usage_type = user_intent.get("usage_type", "")
-    methods: List[str] = ["三分法定位主体", "留白控制画面呼吸感", "水平垂直线校正"]
-
-    if visual_goal == "背景更壮观":
-        methods = ["引导线强化纵深", "前景-主体-背景三层结构", "对角线构图扩展空间感", "三分法与留白协同"]
-    elif visual_goal == "人物更突出":
-        methods = ["框架构图聚焦主体", "色彩对比突出人物", "背景简化与留白收敛", "三分法稳定主体重心"]
-    elif visual_goal == "画面更干净":
-        methods = ["留白构图减噪", "对称或准对称提升秩序感", "主体边缘干扰清理"]
-    elif visual_goal == "更像电影镜头":
-        methods = ["前景虚化营造氛围", "引导线建立叙事动线", "对角线与留白塑造镜头感"]
-    elif visual_goal == "显腿更长":
-        methods = ["低机位对角线延展腿部", "三角形站姿稳定重心", "前景弱化避免腿部遮挡"]
-
-    if lens_pref == "更广角冲击":
-        methods.append("近大远小强化透视")
-    elif lens_pref == "更压缩背景":
-        methods.append("中长焦压缩减少背景干扰")
-    elif lens_pref == "更突出人物":
-        methods.append("主体占比优先并控制边缘杂物")
-
-    if usage_type == "形象照":
-        methods.append("肩线与头部微三角构图增强松弛感")
-
-    return "；".join(methods)
+    scores = {
+        goal: sum(evidence.count(word) for word in words)
+        for goal, words in keywords.items()
+    }
+    best_goal = max(scores, key=scores.get)
+    return best_goal if scores[best_goal] > 0 else "composition"
 
 
 def build_strategy_plan(ai_result: Dict[str, str], user_intent: Dict[str, str]) -> Dict[str, str]:
-    strategy = {
-        "composition_goal": "保持主体清晰与画面平衡",
-        "camera_height": "平视",
-        "camera_angle": "正面或轻侧面",
-        "shot_size_target": "半身到全身之间",
-        "lens_feel": "自然视角",
-        "subject_position_target": "人物靠近三分线或轻微居中",
-        "subject_ratio_target": "人物占画面约35%到50%",
-        "negative_space_target": "保留适度留白，避免过空",
-        "light_strategy": "仅利用原图已有光线，无法判断方向时不新增光源",
-        "depth_strategy": "保持自然纵深",
-        "emotion_style": user_intent["emotion_style"],
-        "pose_strategy": "姿态自然放松，身体轻微转向",
-        "expression_hint": build_expression_hint(user_intent["emotion_style"]),
-        "eye_focus_strategy": "双眼注视镜头附近，保留清晰虹膜边界与轻微眼部高光，避免呆滞眼神",
-        "composition_methods": build_composition_methods(user_intent),
-        "color_strategy": "保持真实肤色稍微提亮增白，利用主体与背景色温/明度对比突出人物",
-        "geometry_strategy": "校正地平线与垂直线，避免画面倾斜和空间变形",
+    requested_goal = user_intent["optimization_goal"]
+    effective_goal = infer_automatic_goal(ai_result) if requested_goal == "auto" else requested_goal
+
+    strategy: Dict[str, str] = {
+        "requested_goal": requested_goal,
+        "effective_goal": effective_goal,
+        "optimization_goal_label": intent_option_label("optimization_goal", requested_goal),
+        "effective_goal_label": intent_option_label("optimization_goal", effective_goal),
+        "shot_type_label": intent_option_label("shot_type", user_intent["shot_type"]),
+        "mood_style_label": intent_option_label("mood_style", user_intent["mood_style"]),
+        "output_ratio_label": intent_option_label("output_ratio", user_intent["output_ratio"]),
+        "edit_strength_label": intent_option_label("edit_strength", user_intent["edit_strength"]),
+        "composition_goal": "保持主体清晰、画面平衡和真实场景",
+        "camera_height": "保持原机位",
+        "camera_angle": "保持原角度，仅做轻微透视校正",
+        "shot_size_target": "保持原景别",
+        "lens_feel": "保持原图自然透视",
+        "subject_position_target": "保持人物可识别性，调整到稳定视觉位置",
+        "subject_ratio_target": "尽量保持原图人物占比",
+        "negative_space_target": "留白均衡且有明确作用",
+        "light_strategy": "仅调整原图已有光线的曝光与明暗层次，不新增光源",
+        "depth_strategy": "保持真实纵深，不伪造镜头光学效果",
+        "pose_strategy": "保留原有姿态与身体比例，只做必要的轻微调整",
+        "expression_hint": "保留原图表情类型和嘴部闭合状态，不强行改表情",
+        "eye_focus_strategy": "保留原视线，只优化眼部清晰度和自然高光",
+        "composition_methods": "裁切、留白和水平垂直线校正",
+        "color_strategy": "保持真实肤色与自然白平衡",
+        "geometry_strategy": "保持人脸、身体和环境的真实几何比例",
     }
 
-    visual_goal = user_intent["visual_goal"]
-    if visual_goal == "显腿更长":
-        strategy.update({
-            "composition_goal": "强化腿部延展感并保持自然比例",
-            "camera_height": "低机位",
-            "camera_angle": "轻微仰拍",
-            "shot_size_target": "优先全身",
-            "lens_feel": "自然偏广角",
-            "subject_position_target": "人物位于画面中下区域",
-            "subject_ratio_target": "人物占画面约45%到60%",
-            "pose_strategy": "前后脚错步，重心自然前移",
-        })
-    elif visual_goal == "人物更突出":
-        strategy.update({
-            "composition_goal": "压缩干扰元素，突出人物主体",
-            "shot_size_target": "半身或近景",
-            "lens_feel": "中焦感",
-            "subject_ratio_target": "人物占画面约50%到70%",
-            "negative_space_target": "减少无效留白",
-            "depth_strategy": "弱化背景存在感",
-        })
-    elif visual_goal == "背景更壮观":
-        strategy.update({
-            "composition_goal": "强化人物与环境的尺度关系",
+    goal_updates: Dict[str, Dict[str, str]] = {
+        "composition": {
+            "composition_goal": "修正主体位置、头顶留白、画面边缘与水平垂直关系",
+            "composition_methods": "优先裁切和轻微校正；仅在原图已有线条时利用三分法或引导线",
+        },
+        "subject": {
+            "composition_goal": "在不换景的前提下提高人物视觉权重",
+            "subject_position_target": "人物靠近视觉中心或合适三分线",
+            "subject_ratio_target": "通过自然裁切适度提高人物占比",
+            "depth_strategy": "人物边缘清晰，背景只做轻微弱化",
+            "composition_methods": "主体占比、边缘减扰、人物与背景明度层级",
+        },
+        "lighting": {
+            "composition_goal": "保持构图，优先改善曝光、面部明暗与真实肤色",
+            "light_strategy": "恢复高光和暗部细节，均衡面部曝光，不改变原光源方向",
+            "color_strategy": "校正白平衡和偏色，肤色自然，不增白或涂抹皮肤质感",
+            "composition_methods": "曝光层次、高光保护、暗部细节与白平衡",
+        },
+        "background": {
+            "composition_goal": "通过裁切、边缘整理和轻微背景柔化减少干扰",
+            "negative_space_target": "减少无效留白和边缘杂乱，不删除关键场景元素",
+            "depth_strategy": "人物清晰，背景轻微柔化但仍可读",
+            "composition_methods": "边缘裁切、背景明度压低和克制的景深分离",
+        },
+        "clarity": {
+            "composition_goal": "保持原构图，提升人物和关键细节的清晰度",
+            "depth_strategy": "主体细节清楚，避免锐化光晕、条纹和假纹理",
+            "composition_methods": "轻微降噪、局部细节恢复和克制锐化",
+        },
+    }
+    strategy.update(goal_updates[effective_goal])
+
+    shot_updates: Dict[str, Dict[str, str]] = {
+        "keep": {},
+        "headshot": {
+            "shot_size_target": "头肩特写",
+            "subject_ratio_target": "人物占画面约60%到78%",
+            "subject_position_target": "双眼位于上三分区域，头顶留白自然",
+            "lens_feel": "自然头像透视，不改变脸型",
+        },
+        "half_body": {
+            "shot_size_target": "半身人像",
+            "subject_ratio_target": "人物占画面约45%到65%",
+            "subject_position_target": "头肩与上半身完整，关节位置不被生硬裁断",
+        },
+        "full_body": {
+            "shot_size_target": "全身人像",
+            "subject_ratio_target": "人物占画面约35%到55%",
+            "subject_position_target": "头部到脚部完整保留，四肢比例真实",
+        },
+        "environmental": {
             "shot_size_target": "环境人像",
-            "lens_feel": "广角感",
-            "subject_position_target": "人物位于下三分之一或侧三分线",
-            "subject_ratio_target": "人物占画面约20%到35%",
-            "negative_space_target": "适度增加环境留白",
-            "depth_strategy": "增强远近层次",
-        })
-    elif visual_goal == "画面更干净":
-        strategy.update({
-            "composition_goal": "清除干扰，保持简洁构图",
-            "subject_position_target": "人物稳定居中或三分线",
-            "negative_space_target": "留白集中且可解释",
-            "depth_strategy": "减少杂乱层次",
-        })
-    elif visual_goal == "更像电影镜头":
-        strategy.update({
-            "composition_goal": "强化叙事感与留白结构",
-            "camera_angle": "正面或斜侧",
-            "shot_size_target": "中景偏环境",
-            "negative_space_target": "保留更多叙事留白",
-            "depth_strategy": "增强前中后层次",
-        })
+            "subject_ratio_target": "人物占画面约20%到40%",
+            "subject_position_target": "人物与原有环境建立清晰关系",
+            "negative_space_target": "保留可读的环境和叙事留白",
+            "lens_feel": "自然环境人像透视，不伪造广角拉伸",
+        },
+    }
+    strategy.update(shot_updates[user_intent["shot_type"]])
 
-    lens_pref = user_intent["lens_preference"]
-    if lens_pref == "更广角冲击":
-        strategy["lens_feel"] = "广角感"
-        strategy["depth_strategy"] = "增强空间纵深"
-        strategy["camera_angle"] = "轻微仰拍或斜侧"
-        strategy["subject_ratio_target"] = "人物占画面约28%到45%"
-        strategy["negative_space_target"] = "保留可读的环境留白并增强透视延展"
-        strategy["composition_methods"] = strategy.get("composition_methods", "") + "；近大远小透视强化；前景锚点增强广角冲击"
-    elif lens_pref == "更突出人物":
-        strategy["lens_feel"] = "中焦感"
-        strategy["subject_ratio_target"] = "人物占画面约55%到72%"
-    elif lens_pref == "更压缩背景":
-        strategy["lens_feel"] = "长焦压缩感"
-        strategy["depth_strategy"] = "压缩背景层次"
+    mood_updates = {
+        "keep": "除完成主目标所需的轻微纠偏外，保持原图色温、饱和度和对比关系",
+        "natural": "自然中性、通透但不过曝，肤色真实",
+        "warm": "在原图基础上轻微增暖，肤色不偏黄不偏红",
+        "fresh": "明度轻盈、色彩干净，保留高光细节",
+        "cool": "轻微冷调与克制饱和度，人物肤色仍保持真实",
+        "cinematic": "使用原图已有明暗形成克制的电影对比，不新增光源或色彩特效",
+    }
+    mood_strategy = mood_updates[user_intent["mood_style"]]
+    if effective_goal == "lighting":
+        # 光线主目标需要保留白平衡/肤色修复要求；氛围只决定调色方向，
+        # 不能像旧版那样把光线策略整体覆盖掉。
+        strategy["color_strategy"] = f"{strategy['color_strategy']}；氛围控制：{mood_strategy}"
+    else:
+        strategy["color_strategy"] = mood_strategy
 
-    emotion_style = user_intent["emotion_style"]
-    if emotion_style == "快乐":
-        strategy["pose_strategy"] = "姿态打开，视线更积极"
-    elif emotion_style == "惆怅":
-        strategy["pose_strategy"] = "视线轻微偏离镜头，动作克制"
-    elif emotion_style == "神秘":
-        strategy["pose_strategy"] = "保留侧向轮廓，减少正面直视"
-    elif emotion_style == "温暖":
-        strategy["pose_strategy"] = "表情柔和，动作自然靠近"
-    elif emotion_style == "冷感":
-        strategy["pose_strategy"] = "姿态稳定，表情克制"
+    strength_updates = {
+        "conservative": (
+            "只做一档轻微调整；优先保留原图构图、姿态、表情和色彩；"
+            "如果优化会导致换人或换景，则放弃该调整。"
+        ),
+        "standard": (
+            "执行可感知但自然的优化；可适度裁切、校正和调整明暗，"
+            "不重建人物、姿态或场景。"
+        ),
+        "strong": (
+            "允许更明显的裁切、主体占比、曝光和层次优化；"
+            "仍必须保持同一人物、原有表情、真实身体比例和原场景关键元素。"
+        ),
+    }
+    strategy["strength_rule"] = strength_updates[user_intent["edit_strength"]]
 
-    if "不明显" in ai_result.get("light_source_inference", ""):
-        strategy["light_strategy"] = "光源方向不明显，保持原图自然明暗关系，不制造新光源"
+    light_text = ai_result.get("light_source_inference", "")
+    if "不明显" in light_text or "无法" in light_text:
+        strategy["light_strategy"] += " 原图光源方向不可靠，不制造新的窗光、轮廓光或逆光。"
 
     return strategy
 
@@ -1333,22 +1531,16 @@ def build_targeted_ideal_prompt(
     strategy_plan: Dict[str, str],
     user_intent: Dict[str, str]
 ) -> str:
-    light_text = ai_result.get("light_source_inference", "")
-    light_clause = "整体光线保持原图自然关系。"
-    if "不明显" not in light_text and "无法" not in light_text:
-        light_clause = "利用原图已有的受光方向优化面部与主体明暗层次，不新增任何新光源。"
-
+    auto_note = ""
+    if strategy_plan["requested_goal"] == "auto":
+        auto_note = f"系统根据诊断将主要问题确定为“{strategy_plan['effective_goal_label']}”。"
     return (
-        f"这是一张真实照片风格的人像优化结果。人物以{strategy_plan['shot_size_target']}呈现，"
-        f"机位为{strategy_plan['camera_height']}，角度采用{strategy_plan['camera_angle']}，"
-        f"画面构图目标是{strategy_plan['composition_goal']}，人物位置目标为{strategy_plan['subject_position_target']}。"
-        f"镜头观感为{strategy_plan['lens_feel']}，空间层次策略为{strategy_plan['depth_strategy']}，"
-        f"构图执行方法包括{strategy_plan.get('composition_methods', '三分法与留白控制')}。"
-        f"情绪表达为{user_intent['emotion_style']}，用途偏向{user_intent['usage_type']}。"
-        f"{light_clause} 眼神策略为{strategy_plan.get('eye_focus_strategy', '眼神自然聚焦')}。"
-        f"人物状态自然上镜，保持同一人物身份特征，环境维持原场景。"
-        "Identity lock: keep the same person and same outfit/hair/accessories; "
-        "do not swap face/person; do not add or remove major scene elements."
+        f"{auto_note}结果是一张真实摄影照片，优先完成“{strategy_plan['effective_goal_label']}”。"
+        f"景别为{strategy_plan['shot_size_target']}，人物位置为{strategy_plan['subject_position_target']}，"
+        f"构图目标为{strategy_plan['composition_goal']}。"
+        f"光线处理为{strategy_plan['light_strategy']}，色调为{strategy_plan['color_strategy']}。"
+        f"输出画幅为{strategy_plan['output_ratio_label']}，优化强度为{strategy_plan['edit_strength_label']}。"
+        "始终保持同一人物、原有表情类型、发型、服装、配饰、身体比例和原场景关键元素。"
     )
 
 
@@ -1357,6 +1549,10 @@ def build_guidance_text(
     strategy_plan: Dict[str, str],
     user_intent: Dict[str, str]
 ) -> Dict[str, str]:
+    _ = user_intent
+    auto_note = ""
+    if strategy_plan["requested_goal"] == "auto":
+        auto_note = f"自动识别主要目标为“{strategy_plan['effective_goal_label']}”。"
     return {
         "scene_summary": ai_result.get("scene_summary", "已完成基础诊断。"),
         "subject_gender": ai_result.get("subject_gender", "未返回该项结果。"),
@@ -1366,17 +1562,17 @@ def build_guidance_text(
         "composition_analysis": ai_result.get("composition_analysis", "未返回该项结果。"),
         "light_source_inference": ai_result.get("light_source_inference", "未返回该项结果。"),
         "recommended_shooting_position": (
-            f"目标为“{user_intent['visual_goal']}”，建议{strategy_plan['camera_height']} + "
-            f"{strategy_plan['camera_angle']}，并保持{strategy_plan['subject_position_target']}。"
+            f"{auto_note}建议按“{strategy_plan['effective_goal_label']}”优先调整；"
+            f"{strategy_plan['camera_height']}，{strategy_plan['camera_angle']}，{strategy_plan['subject_position_target']}。"
         ),
         "suggested_adjustment": (
-            f"摄影师：按{strategy_plan['lens_feel']}与{strategy_plan['shot_size_target']}执行；"
-            f"人物：{strategy_plan['pose_strategy']}；情绪方向：{strategy_plan['emotion_style']}；"
-            f"表情建议：{strategy_plan.get('expression_hint', '保持自然表情，轻微调整即可')}；"
-            f"眼神策略：{strategy_plan.get('eye_focus_strategy', '眼神自然聚焦')}；"
-            f"构图方法：{strategy_plan.get('composition_methods', '三分法+留白')}。"
+            f"构图：{strategy_plan['composition_methods']}；"
+            f"景别：{strategy_plan['shot_size_target']}；"
+            f"光线：{strategy_plan['light_strategy']}；"
+            f"色调：{strategy_plan['color_strategy']}；"
+            f"强度：{strategy_plan['strength_rule']}"
         ),
-        "expression_hint": strategy_plan.get("expression_hint", "保持自然表情，轻微调整即可"),
+        "expression_hint": strategy_plan["expression_hint"],
         "ideal_image_prompt": ai_result.get("ideal_image_prompt", "未返回该项结果。"),
     }
 
@@ -1387,52 +1583,102 @@ def build_edit_prompt(
     user_intent: Dict[str, str],
     targeted_ideal_prompt: str
 ) -> str:
-    _ = strategy_plan, user_intent, targeted_ideal_prompt
     return f"""
-请基于输入原图进行写实照片风格编辑，生成“调整后的理想拍摄结果图”。
+请对输入原图做一次真实、可执行、克制的摄影优化，生成“调整后的理想拍摄结果图”。
 
-总原则（必须同时满足）：
-1. 人物身份锁定：必须是同一人，不换脸、不换人，不改变年龄感、性别、体型、发型、服装、配饰。
-2. 场景内容锁定：原图中的背景、道具、空间关系与关键元素必须保留，不新增、不删除、不替换任何主要元素。
-3. 光线约束：仅可利用原图已有光线关系，不凭空添加新光源。
-4. 风格约束：保持真实摄影质感，不要卡通、插画、动漫、海报字、气泡框、教学标注。
+用户明确选择（必须实际体现）：
+- 优先改善：{strategy_plan.get("optimization_goal_label", "")}
+- 实际执行目标：{strategy_plan.get("effective_goal_label", "")}
+- 目标景别：{strategy_plan.get("shot_type_label", "")}
+- 画面氛围：{strategy_plan.get("mood_style_label", "")}
+- 输出画幅：{strategy_plan.get("output_ratio_label", "")}
+- 优化强度：{strategy_plan.get("edit_strength_label", "")}
 
-允许AI发挥的范围（请大胆执行）：
-1. 允许进行明显的机位变化（平拍、俯拍、仰拍、斜侧拍）、取景重构与构图重排。
-2. 允许调整人物站位、身体朝向、头肩角度、手臂与躯干姿态，使画面更有表现力。
-3. 允许在不改变场景元素的前提下做较大幅度裁切、透视重构、主体比例调整。
-4. 允许做自然且克制的人像优化（提神、肤质微调、层次增强），但不得出现整容感或失真。
+目标结果：
+{targeted_ideal_prompt}
 
-请重点追求：
-- 更有创意的拍摄角度与人物姿态；
-- 但画面“内容元素”保持和原图一致；
-- 最终看起来像真实相机拍摄结果。
+专业执行策略：
+- 构图：{strategy_plan.get("composition_goal", "")}
+- 景别：{strategy_plan.get("shot_size_target", "")}
+- 人物位置：{strategy_plan.get("subject_position_target", "")}
+- 人物占比：{strategy_plan.get("subject_ratio_target", "")}
+- 留白：{strategy_plan.get("negative_space_target", "")}
+- 构图方法：{strategy_plan.get("composition_methods", "")}
+- 光线：{strategy_plan.get("light_strategy", "")}
+- 色调：{strategy_plan.get("color_strategy", "")}
+- 清晰度与空间：{strategy_plan.get("depth_strategy", "")}
+- 几何比例：{strategy_plan.get("geometry_strategy", "")}
+- 人物姿态：{strategy_plan.get("pose_strategy", "")}
+- 表情与视线：{strategy_plan.get("expression_hint", "")}；{strategy_plan.get("eye_focus_strategy", "")}
+- 强度规则：{strategy_plan.get("strength_rule", "")}
 
-人物性别：
-{ai_result.get("subject_gender", "")}
+原图诊断依据：
+- 人物位置：{ai_result.get("subject_position_analysis", "")}
+- 当前角度：{ai_result.get("camera_angle_analysis", "")}
+- 构图问题：{ai_result.get("composition_analysis", "")}
+- 光线判断：{ai_result.get("light_source_inference", "")}
+- 诊断阶段的理想描述（仅作参考，不得覆盖用户选择）：{ai_result.get("ideal_image_prompt", "")}
 
-理想拍摄结果描述：
-{ai_result.get("ideal_image_prompt", "")}
-
-光线判断参考：
-{ai_result.get("light_source_inference", "")}
-
-反向限制：
-- 不要换脸、不要换人
-- 不要改变穿着、发型、配饰
-- 不要新增或删除原图主要元素
-- 不要新增原图不存在的光源
-- 不要卡通/插画/动漫化
-- 不要任何文字标注或对话框
-- 不要过度磨皮、不要失真
+最高优先级约束：
+1. 必须是同一人；不换脸、不换人，不改年龄、性别、脸型、体型和五官比例。
+2. 保留原有表情类型、嘴部闭合状态、发型、服装、眼镜和配饰。
+3. 保留原场景的背景、道具、空间关系和关键元素；不新增、删除、替换主要内容。
+4. 改变画幅时优先安全裁切和重排画面权重，不补画原图外不存在的景物。
+5. 只能利用原图已有光线；不新增窗光、阳光、轮廓光、补光灯、霓虹灯或光斑。
+6. 保持真实皮肤纹理和毛孔；不增白、不整容、不过度磨皮、不使用网红滤镜。
+7. 不要卡通、插画、动漫、3D 渲染、海报化或虚假电影特效。
+8. 图中不添加任何文字、箭头、标签、气泡框、对话框或教学标注。
+9. 如果某项优化会导致换人、换景、肢体变形或虚构元素，必须放弃该项调整，优先保持原图真实性。
 """.strip()
 
 QWEN_IMAGE_NEGATIVE_PROMPT = (
-    "微笑,大笑,露齿,张嘴,改变表情,表情变形,卡通风格,插画风格,动漫风格,二次元,"
-    "气泡对话框,对白框,教学标注,箭头,标签,海报标题,大段文字,遮挡主体的文字,陌生人,"
-    "性别错误,明显换脸,化妆,眼影,口红,美妆,脂粉气,浓妆,烟熏妆,条纹噪点,网纹,摩尔纹,"
-    "扫描线,网格噪声,纹理污染,呆滞眼神,空洞眼神,失焦眼神,斗鸡眼"
+    "换脸,换人,陌生人,性别错误,年龄改变,脸型改变,体型改变,发型改变,服装改变,配饰改变,"
+    "改变原表情,嘴部变形,眼睛变形,五官变形,多余牙齿,肢体变形,卡通风格,插画风格,动漫风格,二次元,3d渲染,"
+    "气泡对话框,对白框,教学标注,箭头,标签,海报标题,大段文字,遮挡主体的文字,整容脸,塑料皮肤,过度磨皮,"
+    "条纹噪点,网纹,摩尔纹,扫描线,网格噪声,纹理污染,呆滞眼神,空洞眼神,失焦眼神,斗鸡眼"
 )
+
+
+OUTPUT_SIZE_PRESETS: Dict[str, Dict[str, Any]] = {
+    "source": {
+        "dashscope_size": None,
+        "doubao_size": "2K",
+        "expected_ratio": None,
+    },
+    "screen_4_3": {
+        "dashscope_size": "2048*1536",
+        "doubao_size": "2048x1536",
+        "expected_ratio": 4.0 / 3.0,
+    },
+    "portrait_3_4": {
+        "dashscope_size": "1536*2048",
+        "doubao_size": "1536x2048",
+        "expected_ratio": 3.0 / 4.0,
+    },
+    "square_1_1": {
+        "dashscope_size": "2048*2048",
+        "doubao_size": "2048x2048",
+        "expected_ratio": 1.0,
+    },
+    "landscape_16_9": {
+        "dashscope_size": "2048*1152",
+        "doubao_size": "2048x1152",
+        "expected_ratio": 16.0 / 9.0,
+    },
+}
+
+
+def build_generation_settings(user_intent: Dict[str, str]) -> Dict[str, Any]:
+    ratio_key = user_intent.get("output_ratio", DEFAULT_USER_INTENT["output_ratio"])
+    preset = OUTPUT_SIZE_PRESETS.get(ratio_key, OUTPUT_SIZE_PRESETS[DEFAULT_USER_INTENT["output_ratio"]])
+    return {
+        "output_ratio": ratio_key,
+        "output_ratio_label": intent_option_label("output_ratio", ratio_key),
+        "dashscope_size": preset["dashscope_size"],
+        "doubao_size": preset["doubao_size"],
+        "expected_ratio": preset["expected_ratio"],
+        "edit_strength": user_intent.get("edit_strength", DEFAULT_USER_INTENT["edit_strength"]),
+    }
 
 
 def edit_with_dashscope_image_model(
@@ -1440,6 +1686,7 @@ def edit_with_dashscope_image_model(
     prompt_text: str,
     model_id: str,
     use_negative_prompt: bool,
+    generation_settings: Optional[Dict[str, Any]] = None,
 ) -> str:
     if not DASHSCOPE_API_KEY:
         raise RuntimeError("未配置 DASHSCOPE_API_KEY")
@@ -1453,8 +1700,10 @@ def edit_with_dashscope_image_model(
     parameters: Dict[str, Any] = {
         "n": 1,
         "watermark": False,
-        "size": "1024*1536",
     }
+    requested_size = (generation_settings or {}).get("dashscope_size")
+    if requested_size:
+        parameters["size"] = requested_size
     if use_negative_prompt:
         parameters["negative_prompt"] = QWEN_IMAGE_NEGATIVE_PROMPT
         # 本项目的提示词已由诊断结果精确组装，不再让模型二次改写。
@@ -1492,30 +1741,45 @@ def edit_with_dashscope_image_model(
     return image_url
 
 
-def edit_with_wan27_image(image_path: str, prompt_text: str) -> str:
+def edit_with_wan27_image(
+    image_path: str,
+    prompt_text: str,
+    generation_settings: Optional[Dict[str, Any]] = None,
+) -> str:
     return edit_with_dashscope_image_model(
         image_path,
         prompt_text,
         WAN_IMAGE_MODEL,
         use_negative_prompt=False,
+        generation_settings=generation_settings,
     )
 
 
-def edit_with_qwen_image_20(image_path: str, prompt_text: str) -> str:
+def edit_with_qwen_image_20(
+    image_path: str,
+    prompt_text: str,
+    generation_settings: Optional[Dict[str, Any]] = None,
+) -> str:
     return edit_with_dashscope_image_model(
         image_path,
         prompt_text,
         QWEN_IMAGE_MODEL,
         use_negative_prompt=True,
+        generation_settings=generation_settings,
     )
 
 
-def edit_with_qwen_image_edit(image_path: str, prompt_text: str) -> str:
+def edit_with_qwen_image_edit(
+    image_path: str,
+    prompt_text: str,
+    generation_settings: Optional[Dict[str, Any]] = None,
+) -> str:
     return edit_with_dashscope_image_model(
         image_path,
         prompt_text,
         QWEN_IMAGE_EDIT_MAX_MODEL,
         use_negative_prompt=True,
+        generation_settings=generation_settings,
     )
 
 
@@ -1543,7 +1807,11 @@ def edit_with_zhipu_image(image_path: str, prompt_text: str) -> str:
     return hit
 
 
-def edit_with_doubao_seedream(image_path: str, prompt_text: str) -> str:
+def edit_with_doubao_seedream(
+    image_path: str,
+    prompt_text: str,
+    generation_settings: Optional[Dict[str, Any]] = None,
+) -> str:
     if not DOUBAO_API_KEY:
         raise RuntimeError("未配置 DOUBAO_API_KEY")
     image_data_url = image_file_to_data_url(image_path)
@@ -1551,6 +1819,7 @@ def edit_with_doubao_seedream(image_path: str, prompt_text: str) -> str:
         "Authorization": f"Bearer {DOUBAO_API_KEY}",
         "Content-Type": "application/json",
     }
+    requested_size = str((generation_settings or {}).get("doubao_size") or "2K")
     model_candidates = build_doubao_model_candidates()
     if not model_candidates:
         raise RuntimeError("豆包可用模型为空，请配置 DOUBAO_IMAGE_MODEL 或 DOUBAO_ENDPOINT_ID")
@@ -1590,7 +1859,7 @@ def edit_with_doubao_seedream(image_path: str, prompt_text: str) -> str:
                 # 方舟 ImageGenerations 的参考图是字符串数组。
                 payload.update({
                     "image": [image_data_url],
-                    "size": "2K",
+                    "size": requested_size,
                     "sequential_image_generation": "disabled",
                     "response_format": "url",
                     "watermark": False,
@@ -1599,7 +1868,7 @@ def edit_with_doubao_seedream(image_path: str, prompt_text: str) -> str:
                 # 兼容用户已配置的旧 /images/edits 接口。
                 payload.update({
                     "image": image_data_url,
-                    "size": "1024x1536",
+                    "size": requested_size,
                     "n": 1,
                     "watermark": False,
                 })
@@ -1961,7 +2230,12 @@ def get_ready_models(model_names: List[str]) -> List[str]:
     return ready
 
 
-def run_model_compare(image_path: str, prompt_text: str) -> Dict[str, Any]:
+def run_model_compare(
+    image_path: str,
+    prompt_text: str,
+    generation_settings: Optional[Dict[str, Any]] = None,
+    user_intent: Optional[Dict[str, str]] = None,
+) -> Dict[str, Any]:
     candidates: List[Dict[str, Any]] = []
     chosen: Optional[Dict[str, Any]] = None
     errors: List[str] = []
@@ -1972,7 +2246,7 @@ def run_model_compare(image_path: str, prompt_text: str) -> Dict[str, Any]:
         if runner is None:
             continue
         try:
-            raw_url = runner(image_path, prompt_text)
+            raw_url = runner(image_path, prompt_text, generation_settings)
             if not str(raw_url).strip() or not (
                 str(raw_url).startswith("http://")
                 or str(raw_url).startswith("https://")
@@ -1980,7 +2254,12 @@ def run_model_compare(image_path: str, prompt_text: str) -> Dict[str, Any]:
             ):
                 raise RuntimeError("模型返回空图片地址。")
             raw_local_url, beauty_url, beauty_applied = raw_url, raw_url, False
-            quality_score, quality_reason = evaluate_image_quality(model_name, beauty_url)
+            quality_score, quality_reason = evaluate_image_quality(
+                model_name,
+                beauty_url,
+                generation_settings=generation_settings,
+                user_intent=user_intent,
+            )
             item = {
                 "model": model_name,
                 "raw_diagram_url": raw_local_url,
@@ -2045,14 +2324,18 @@ def run_model_compare(image_path: str, prompt_text: str) -> Dict[str, Any]:
     }
 
 
-def edit_image_auto(image_path: str, prompt_text: str) -> Tuple[str, str, str]:
+def edit_image_auto(
+    image_path: str,
+    prompt_text: str,
+    generation_settings: Optional[Dict[str, Any]] = None,
+) -> Tuple[str, str, str]:
     errors: List[str] = []
     for model_name in get_ready_models(IMAGE_EDIT_MODELS):
         runner = get_image_model_runner(model_name)
         if runner is None:
             continue
         try:
-            return runner(image_path, prompt_text), model_name, ""
+            return runner(image_path, prompt_text, generation_settings), model_name, ""
         except Exception as e:
             err = f"{model_name} 失败：{e}"
             errors.append(err)
@@ -2067,12 +2350,20 @@ def edit_image_auto(image_path: str, prompt_text: str) -> Tuple[str, str, str]:
 # =========================
 @app.route("/")
 def root():
-    return render_template("mobile.html")
+    return render_template(
+        "mobile.html",
+        optimization_schema=OPTIMIZATION_SCHEMA,
+        default_user_intent=DEFAULT_USER_INTENT,
+    )
 
 
 @app.route("/mobile")
 def mobile_page():
-    return render_template("mobile.html")
+    return render_template(
+        "mobile.html",
+        optimization_schema=OPTIMIZATION_SCHEMA,
+        default_user_intent=DEFAULT_USER_INTENT,
+    )
 
 
 @app.route("/display")
@@ -2259,6 +2550,10 @@ def api_generate():
         session_id = str(payload.get("session_id", "")).strip()
         if not session_id:
             return jsonify({"ok": False, "msg": "缺少 session_id"}), 400
+        try:
+            session_id = validate_session_id(session_id)
+        except ValueError as e:
+            return jsonify({"ok": False, "msg": str(e)}), 400
 
         session_data = load_session_data(session_id)
         image_path = session_data.get("image_path", "")
@@ -2270,7 +2565,11 @@ def api_generate():
             diagnosis_report = {}
 
         user_intent = normalize_user_intent(payload.get("user_intent", {}))
-        debug_compare = bool(payload.get("debug_compare", MODEL_COMPARE_ENABLED_DEFAULT))
+        generation_settings = build_generation_settings(user_intent)
+        debug_compare = parse_bool(
+            str(payload.get("debug_compare", MODEL_COMPARE_ENABLED_DEFAULT)),
+            MODEL_COMPARE_ENABLED_DEFAULT,
+        )
         strategy_plan = build_strategy_plan(diagnosis_report, user_intent)
         targeted_ideal_prompt = build_targeted_ideal_prompt(diagnosis_report, strategy_plan, user_intent)
         edit_prompt = build_edit_prompt(diagnosis_report, strategy_plan, user_intent, targeted_ideal_prompt)
@@ -2280,7 +2579,12 @@ def api_generate():
         print("[开始图像编辑生成理想拍摄结果图]")
         model_candidates: List[Dict[str, Any]] = []
         if debug_compare:
-            compare_data = run_model_compare(image_path, edit_prompt)
+            compare_data = run_model_compare(
+                image_path,
+                edit_prompt,
+                generation_settings=generation_settings,
+                user_intent=user_intent,
+            )
             diagram_url = compare_data.get("diagram_url", "")
             used_image_model = compare_data.get("image_model", "")
             diagram_error = compare_data.get("diagram_error", "")
@@ -2288,7 +2592,11 @@ def api_generate():
             beauty_applied = bool(compare_data.get("beauty_applied", False))
             model_candidates = compare_data.get("model_candidates", [])
         else:
-            diagram_url, used_image_model, diagram_error = edit_image_auto(image_path, edit_prompt)
+            diagram_url, used_image_model, diagram_error = edit_image_auto(
+                image_path,
+                edit_prompt,
+                generation_settings=generation_settings,
+            )
             raw_diagram_url = diagram_url
             beauty_applied = False
             model_candidates = [{
@@ -2325,6 +2633,7 @@ def api_generate():
         session_data["time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         session_data["stage"] = "generated"
         session_data["user_intent"] = user_intent
+        session_data["generation_settings"] = generation_settings
         session_data["strategy_plan"] = strategy_plan
         session_data["edit_prompt"] = edit_prompt
         session_data["raw_diagram_url"] = raw_diagram_url
@@ -2353,6 +2662,7 @@ def api_generate():
             "image_model": used_image_model,
             "diagnosis_report": diagnosis_report,
             "user_intent": user_intent,
+            "generation_settings": generation_settings,
             "strategy_plan": strategy_plan,
             "ai_result": final_guidance,
             "edit_prompt": edit_prompt,
@@ -2380,6 +2690,7 @@ def api_generate():
             "image_model": used_image_model,
             "diagnosis_report": diagnosis_report,
             "user_intent": user_intent,
+            "generation_settings": generation_settings,
             "strategy_plan": strategy_plan,
             "ai_result": final_guidance,
             "raw_diagram_url": raw_diagram_url,
@@ -2427,6 +2738,21 @@ def api_push_latest_to_esp():
             with open(LATEST_RESULT_JSON, "r", encoding="utf-8") as f:
                 latest_data = json.load(f)
 
+        allowed_refs = {
+            str(latest_data.get("diagram_url", "")).strip(),
+            str(latest_data.get("raw_diagram_url", "")).strip(),
+        }
+        latest_candidates = latest_data.get("model_candidates", [])
+        if isinstance(latest_candidates, list):
+            for item in latest_candidates:
+                if isinstance(item, dict):
+                    allowed_refs.add(str(item.get("diagram_url", "")).strip())
+                    allowed_refs.add(str(item.get("raw_diagram_url", "")).strip())
+        allowed_refs.discard("")
+
+        if image_ref and image_ref not in allowed_refs:
+            return jsonify({"ok": False, "msg": "拒绝推送非当前生成结果的图片。"}), 400
+
         if not image_ref:
             image_ref = str(latest_data.get("diagram_url", "")).strip()
 
@@ -2451,12 +2777,39 @@ def api_push_latest_to_esp():
         msg = f"ESP push {success_count}/{len(queue)}. {(details[-1] if details else '')}".strip()
 
         if latest_data:
+            selected_candidate = None
+            if isinstance(latest_candidates, list):
+                selected_candidate = next(
+                    (
+                        item for item in latest_candidates
+                        if isinstance(item, dict)
+                        and str(item.get("diagram_url", "")).strip() == image_ref
+                    ),
+                    None,
+                )
+            if ok:
+                latest_data["diagram_url"] = image_ref
+                if isinstance(selected_candidate, dict):
+                    latest_data["raw_diagram_url"] = selected_candidate.get("raw_diagram_url", image_ref)
+                    latest_data["image_model"] = selected_candidate.get("model", latest_data.get("image_model", ""))
             latest_data["esp_push_ok"] = ok
             latest_data["esp_push_msg"] = msg
             latest_data["esp_pushed_image"] = image_ref if ok else ""
             latest_data["esp_push_count"] = success_count
             latest_data["esp_push_total"] = len(queue)
             save_latest_result(latest_data)
+
+            session_id = str(latest_data.get("session_id", "")).strip()
+            if ok and session_id:
+                try:
+                    session_data = load_session_data(session_id)
+                    session_data["diagram_url"] = latest_data.get("diagram_url", image_ref)
+                    session_data["raw_diagram_url"] = latest_data.get("raw_diagram_url", image_ref)
+                    session_data["image_model"] = latest_data.get("image_model", "")
+                    session_data["esp_pushed_image"] = image_ref
+                    save_session_data(session_id, session_data)
+                except Exception as e:
+                    print(f"[ESP] 更新会话主图失败：{e}")
 
         return jsonify({
             "ok": ok,
