@@ -2,842 +2,1050 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI 摄影指导系统</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>AI 摄影指导</title>
   <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-base: #1E2024;
+      --bg-card: rgba(255,255,255,0.06);
+      --bg-input: rgba(255,255,255,0.04);
+      --bg-hover: rgba(255,255,255,0.10);
+      --text-1: #E8E5E1;
+      --text-2: #9A9792;
+      --text-3: #5A5752;
+      --accent: #7BA3B8;
+      --accent-dim: rgba(123,163,184,0.20);
+      --accent-glow: rgba(123,163,184,0.35);
+      --success: #8ABFA0;
+      --error: #C8968E;
+      --border: rgba(255,255,255,0.06);
+      --shadow: 0 8px 32px rgba(0,0,0,0.25);
+      --shadow-float: 0 14px 40px rgba(0,0,0,0.30);
+      --radius: 16px;
+      --radius-sm: 12px;
+      --radius-xs: 10px;
+      --glass-blur: 20px;
+      --bar-h: 64px;
+      --header-h: 52px;
+    }
+    html[data-theme="light"] {
+      --bg-base: #F2F0ED;
+      --bg-card: rgba(255,255,255,0.60);
+      --bg-input: rgba(0,0,0,0.03);
+      --bg-hover: rgba(0,0,0,0.05);
+      --text-1: #3D3A36;
+      --text-2: #8A8580;
+      --text-3: #B5B0AA;
+      --accent: #6B95A8;
+      --accent-dim: rgba(107,149,168,0.15);
+      --accent-glow: rgba(107,149,168,0.25);
+      --success: #6DA07C;
+      --error: #B07A72;
+      --border: rgba(0,0,0,0.07);
+      --shadow: 0 8px 32px rgba(0,0,0,0.06);
+      --shadow-float: 0 14px 40px rgba(0,0,0,0.10);
+    }
     body {
-      margin: 0;
-      background: #0f172a;
-      color: #e5e7eb;
-      font-family: Arial, "Microsoft YaHei", sans-serif;
+      background: var(--bg-base);
+      color: var(--text-1);
+      font-family: -apple-system, "SF Pro Display", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+      min-height: 100dvh;
+      overflow: hidden;
     }
-    .wrap {
-      max-width: 820px;
-      margin: 0 auto;
-      padding: 16px 14px 28px;
+    /* — Header — */
+    .app-header {
+      position: fixed; top: 0; left: 0; right: 0;
+      height: var(--header-h);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px;
+      background: var(--bg-card);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border-bottom: 1px solid var(--border);
+      z-index: 50;
     }
-    .card {
-      background: #111827;
-      border: 1px solid #1f2937;
-      border-radius: 16px;
-      padding: 16px;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.25);
-      margin-bottom: 14px;
+    .header-title { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; }
+    .header-actions { display: flex; gap: 6px; }
+    .icon-btn {
+      width: 36px; height: 36px; border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--bg-input);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.2s ease;
     }
-    h1 {
-      font-size: 24px;
-      margin: 0 0 10px;
-      color: #f9fafb;
+    .icon-btn:hover { background: var(--bg-hover); transform: translateY(-1px); }
+    .icon-btn svg { width: 18px; height: 18px; fill: var(--text-2); }
+    .icon-btn .icon-moon { display: none; }
+    html[data-theme="light"] .icon-btn .icon-sun { display: none; }
+    html[data-theme="light"] .icon-btn .icon-moon { display: block; }
+
+    /* — Wizard — */
+    .wizard {
+      position: fixed;
+      top: var(--header-h); left: 0; right: 0;
+      bottom: var(--bar-h);
+      overflow: hidden;
     }
-    h2 {
-      font-size: 20px;
-      margin: 0 0 12px;
-      color: #f9fafb;
+    .step {
+      position: absolute; inset: 0;
+      padding: 20px 18px 24px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      opacity: 0;
+      transform: translateX(60px);
+      pointer-events: none;
+      transition: opacity 0.4s ease, transform 0.4s ease;
     }
-    .desc {
-      color: #cbd5e1;
-      font-size: 14px;
-      line-height: 1.7;
-      margin-bottom: 12px;
+    .step.active {
+      opacity: 1; transform: translateX(0); pointer-events: auto;
     }
-    .btn {
-      width: 100%;
-      border: none;
-      border-radius: 12px;
-      padding: 16px;
-      font-size: 18px;
-      font-weight: bold;
-      cursor: pointer;
-      background: #1677ff;
-      color: #fff;
+    .step.exit-left {
+      opacity: 0; transform: translateX(-60px);
     }
-    .btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
+    .step-enter-from-left {
+      transform: translateX(-60px);
     }
-    .status {
-      margin-top: 12px;
-      min-height: 24px;
-      white-space: pre-wrap;
-      line-height: 1.6;
-      font-size: 15px;
-      color: #cbd5e1;
+    /* — Bottom bar — */
+    .bottom-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: var(--bar-h);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px;
+      background: var(--bg-card);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border-top: 1px solid var(--border);
+      z-index: 50;
     }
-    .ok { color: #86efac; }
-    .err { color: #fca5a5; }
-    .preview-box {
-      margin-top: 14px;
-      display: none;
+    /* — Progress dots — */
+    .progress-dots { display: flex; gap: 6px; align-items: center; }
+    .progress-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--text-3);
+      transition: all 0.3s ease;
     }
-    .preview-box img {
-      width: 100%;
-      border-radius: 12px;
-      border: 1px solid #334155;
-      display: block;
+    .progress-dot.active { background: var(--accent); width: 20px; border-radius: 4px; }
+    .progress-dot.done { background: var(--accent); }
+    /* — Nav buttons — */
+    .nav-btn {
+      padding: 10px 20px; border-radius: var(--radius-sm);
+      border: none; font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: all 0.25s ease;
     }
-    .preview-text {
-      margin-top: 8px;
-      font-size: 13px;
-      color: #94a3b8;
+    .nav-btn:disabled { opacity: 0.3; cursor: default; transform: none; }
+    .nav-btn.secondary {
+      background: var(--bg-input); color: var(--text-2);
+      border: 1px solid var(--border);
     }
-    .hint {
-      margin-top: 10px;
-      font-size: 13px;
-      color: #94a3b8;
-      line-height: 1.6;
+    .nav-btn.secondary:hover:not(:disabled) { background: var(--bg-hover); }
+    .nav-btn.primary {
+      background: var(--accent); color: #fff;
     }
-    .section {
-      display: none;
+    .nav-btn.primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--shadow); }
+    .nav-btn:active:not(:disabled) { transform: translateY(0); }
+    .nav-spacer { width: 80px; }
+
+    /* — Glass card — */
+    .glass-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 18px;
+      box-shadow: var(--shadow);
+      margin-bottom: 16px;
     }
-    .row {
-      background: #0b1220;
-      border: 1px solid #243041;
-      border-radius: 10px;
-      padding: 10px 12px;
-      margin-bottom: 10px;
-      line-height: 1.65;
-      font-size: 15px;
+    .card-title { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; margin-bottom: 4px; }
+    .card-subtitle { font-size: 13px; color: var(--text-2); line-height: 1.6; }
+
+    /* — Step 1: 拍照 — */
+    .step-hero { text-align: center; padding-top: 36px; }
+    .step-hero .icon-large {
+      width: 80px; height: 80px; border-radius: 50%;
+      background: var(--accent-dim);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 20px;
     }
-    .label {
-      color: #93c5fd;
-      font-weight: bold;
-      display: block;
-      margin-bottom: 4px;
+    .step-hero .icon-large svg { width: 36px; height: 36px; fill: var(--accent); }
+    .step-hero h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+    .step-hero p { font-size: 14px; color: var(--text-2); margin-bottom: 28px; line-height: 1.6; }
+    .capture-btn {
+      width: 100%; max-width: 300px; margin: 0 auto;
+      padding: 16px 24px; border-radius: var(--radius);
+      border: none; font-size: 16px; font-weight: 700;
+      background: var(--accent); color: #fff;
+      cursor: pointer; transition: all 0.25s ease;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
     }
-    .big-action {
-      margin-top: 12px;
-      background: #1f2937;
-      border: 1px solid #374151;
-      border-radius: 12px;
-      padding: 14px;
-      font-size: 20px;
-      line-height: 1.6;
-      color: #fef3c7;
-      font-weight: bold;
+    .capture-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-float); }
+    .capture-btn:active { transform: translateY(0); }
+    .capture-btn svg { width: 22px; height: 22px; fill: #fff; }
+    .capture-btn:disabled { opacity: 0.5; cursor: default; transform: none; }
+    .step1-hint {
+      margin-top: 20px; font-size: 12px; color: var(--text-3); text-align: center;
+      line-height: 1.6; max-width: 280px; margin-left: auto; margin-right: auto;
     }
-    .hidden { display: none; }
-    .small-note {
-      margin-top: 8px;
-      color: #94a3b8;
-      font-size: 13px;
-      line-height: 1.6;
+
+    /* — Step 2: 诊断 — */
+    .preview-img-wrap {
+      margin-bottom: 16px; border-radius: var(--radius-sm);
+      overflow: hidden; border: 1px solid var(--border);
     }
-    .sub-title {
-      margin-top: 12px;
-      margin-bottom: 8px;
-      color: #cbd5e1;
-      font-size: 14px;
-      font-weight: bold;
+    .preview-img-wrap img {
+      width: 100%; display: block; max-height: 280px; object-fit: cover;
     }
-    .chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 10px;
+    .report-grid { display: flex; flex-direction: column; gap: 10px; }
+    .report-row {
+      background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: var(--radius-xs); padding: 12px 14px;
     }
-    .intent-group {
-      margin: 12px 0 16px;
-      padding: 12px;
-      border: 1px solid #243041;
-      border-radius: 12px;
-      background: #0b1220;
+    .report-label { font-size: 12px; color: var(--accent); font-weight: 600; display: block; margin-bottom: 4px; }
+    .report-value { font-size: 14px; color: var(--text-1); line-height: 1.6; }
+    .suggestion-box {
+      margin-top: 14px; padding: 14px;
+      background: var(--accent-dim); border-radius: var(--radius-sm);
+      border: 1px solid rgba(123,163,184,0.15);
     }
-    .intent-group .sub-title {
-      margin-top: 0;
-      margin-bottom: 4px;
-      color: #dbeafe;
-      font-size: 15px;
+    .suggestion-label { font-size: 12px; color: var(--accent); font-weight: 600; margin-bottom: 4px; }
+    .suggestion-text { font-size: 14px; color: var(--text-1); line-height: 1.6; }
+
+    /* — Step 3: 选项 — */
+    .intent-section { margin-bottom: 18px; }
+    .intent-title { font-size: 14px; font-weight: 600; color: var(--text-1); margin-bottom: 4px; }
+    .intent-help { font-size: 12px; color: var(--text-3); margin-bottom: 10px; }
+    .chips-scroll {
+      display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;
+      -webkit-overflow-scrolling: touch; scrollbar-width: none;
     }
-    .intent-help {
-      margin-bottom: 10px;
-      color: #94a3b8;
-      font-size: 12px;
-      line-height: 1.55;
-    }
-    .intent-option-hint {
-      min-height: 1.5em;
-      margin-top: -2px;
-      color: #bfdbfe;
-      font-size: 12px;
-      line-height: 1.5;
-    }
+    .chips-scroll::-webkit-scrollbar { display: none; }
     .chip {
-      border: 1px solid #334155;
-      background: #0b1220;
-      color: #cbd5e1;
-      border-radius: 999px;
-      padding: 8px 12px;
-      font-size: 13px;
-      cursor: pointer;
+      flex-shrink: 0; padding: 8px 16px; border-radius: 999px;
+      border: 1px solid var(--border); background: var(--bg-input);
+      color: var(--text-2); font-size: 13px; cursor: pointer;
+      transition: all 0.2s ease; white-space: nowrap;
     }
+    .chip:hover { background: var(--bg-hover); }
     .chip.active {
-      border-color: #1677ff;
-      background: #0b2a5e;
-      color: #dbeafe;
+      border-color: var(--accent); background: var(--accent-dim); color: var(--accent);
     }
-    .btn-secondary {
-      margin-top: 8px;
-      background: #059669;
+    .intent-hint {
+      min-height: 20px; margin-top: 6px; font-size: 12px;
+      color: var(--text-2); line-height: 1.5;
     }
-    .strategy-box {
-      margin-top: 10px;
-      background: #0b1220;
-      border: 1px solid #243041;
-      border-radius: 10px;
-      padding: 10px 12px;
-      line-height: 1.65;
-      font-size: 14px;
-      color: #d1d5db;
+    .summary-bar {
+      margin-top: 8px; padding: 12px 14px;
+      background: var(--bg-input); border-radius: var(--radius-xs);
+      border: 1px solid var(--border); font-size: 13px;
+      color: var(--text-2); line-height: 1.5;
     }
-    .inline-row {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      margin-bottom: 8px;
+    .generate-btn {
+      width: 100%; margin-top: 16px; padding: 16px 24px;
+      border-radius: var(--radius-sm); border: none;
+      font-size: 15px; font-weight: 700;
+      background: var(--accent); color: #fff;
+      cursor: pointer; transition: all 0.25s ease;
     }
-    .text-input {
-      flex: 1;
-      box-sizing: border-box;
-      width: 100%;
-      padding: 12px;
-      border-radius: 10px;
-      border: 1px solid #334155;
-      background: #0b1220;
-      color: #e5e7eb;
-      font-size: 15px;
+    .generate-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--shadow-float); }
+    .generate-btn:active:not(:disabled) { transform: translateY(0); }
+    .generate-btn:disabled { opacity: 0.35; cursor: default; transform: none; }
+
+    /* — Step 4: 结果 — */
+    .strategy-grid { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+    .strategy-row {
+      background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: var(--radius-xs); padding: 10px 14px;
     }
-    .btn-inline {
-      width: auto;
-      padding: 12px 14px;
-      font-size: 15px;
-      white-space: nowrap;
+    .strategy-label { font-size: 11px; color: var(--accent); font-weight: 600; display: block; margin-bottom: 3px; }
+    .strategy-value { font-size: 13px; color: var(--text-1); line-height: 1.5; }
+    .ai-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 12px; margin-top: 14px;
     }
-    .bottom-original-card {
-      max-width: 680px;
-      margin: 0 auto 12px;
+    .ai-card {
+      background: var(--bg-input); border: 2px solid var(--border);
+      border-radius: var(--radius-sm); padding: 10px;
+      transition: all 0.25s ease; cursor: pointer;
     }
-    .bottom-original-box img {
-      width: 100%;
-      max-height: 520px;
-      object-fit: contain;
-      border-radius: 12px;
-      border: 1px solid #334155;
-      background: #000;
-      display: none;
+    .ai-card.selected { border-color: var(--success); box-shadow: 0 0 0 1px rgba(138,191,160,0.25); }
+    .ai-card-title { font-size: 11px; color: var(--accent); font-weight: 600; margin-bottom: 6px; word-break: break-word; }
+    .ai-card img { width: 100%; border-radius: 8px; display: block; }
+    .push-btn {
+      width: 100%; margin-top: 8px; padding: 8px;
+      border-radius: 8px; border: 1px solid var(--border);
+      background: var(--bg-hover); color: var(--text-1);
+      font-size: 12px; cursor: pointer; transition: all 0.2s ease;
     }
-    .bottom-ai-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
+    .push-btn:disabled { opacity: 0.5; cursor: wait; }
+    .push-btn:hover:not(:disabled) { background: var(--accent-dim); color: var(--accent); }
+    .restart-btn {
+      width: 100%; margin-top: 20px; padding: 14px;
+      border-radius: var(--radius-sm); border: 1px solid var(--border);
+      background: var(--bg-input); color: var(--text-2);
+      font-size: 14px; font-weight: 600; cursor: pointer;
+      transition: all 0.2s ease;
     }
-    .bottom-ai-item {
-      background: #0b1220;
-      border: 1px solid #243041;
-      border-radius: 10px;
-      padding: 8px;
+    .restart-btn:hover { background: var(--bg-hover); }
+
+    /* — Status text — */
+    .status-text {
+      min-height: 20px; margin-top: 12px; font-size: 13px;
+      color: var(--text-2); line-height: 1.5; white-space: pre-wrap;
     }
-    .bottom-ai-item.selected {
-      border-color: #22c55e;
-      box-shadow: 0 0 0 1px rgba(34,197,94,0.35);
+    .status-text.ok { color: var(--success); }
+    .status-text.err { color: var(--error); }
+
+    /* — 加载动画：诊断 — */
+    .loader-diagnosis {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 32px 0 24px;
     }
-    .bottom-ai-title {
-      color: #93c5fd;
-      font-weight: bold;
-      font-size: 12px;
-      margin-bottom: 6px;
-      line-height: 1.4;
-      word-break: break-word;
+    .loader-ring-wrap {
+      position: relative; width: 140px; height: 140px; margin-bottom: 24px;
     }
-    .bottom-ai-item img {
-      width: 100%;
-      max-height: 360px;
-      object-fit: contain;
-      border-radius: 8px;
-      border: 1px solid #334155;
-      background: #000;
-      display: block;
+    .ring-outer { position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--border); }
+    .ring-outer::before {
+      content: ''; position: absolute; inset: -2px; border-radius: 50%;
+      border: 2px solid transparent; border-top-color: var(--accent); border-right-color: var(--accent);
+      animation: spin 3s linear infinite;
     }
-    .candidate-btn {
-      width: 100%;
-      margin-top: 8px;
-      border: 1px solid #334155;
-      border-radius: 8px;
-      padding: 8px 10px;
-      background: #172033;
-      color: #dbeafe;
-      cursor: pointer;
-      font-size: 12px;
+    .ring-mid { position: absolute; inset: 16px; border-radius: 50%; border: 2px solid var(--border); }
+    .ring-mid::before {
+      content: ''; position: absolute; inset: -2px; border-radius: 50%;
+      border: 2px solid transparent; border-bottom-color: var(--accent); border-left-color: rgba(123,163,184,0.4);
+      animation: spin-reverse 2.2s linear infinite;
     }
-    .candidate-btn:disabled {
-      opacity: 0.6;
-      cursor: wait;
+    .ring-inner {
+      position: absolute; inset: 32px; border-radius: 50%;
+      background: var(--accent-dim); animation: pulse-breathe 2s ease-in-out infinite;
+      display: flex; align-items: center; justify-content: center;
     }
-    @media (max-width: 620px) {
-      .bottom-ai-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
+    .aperture { width: 28px; height: 28px; position: relative; }
+    .aperture .blade {
+      position: absolute; width: 12px; height: 12px;
+      border-radius: 50%; border: 2px solid var(--accent); border-left-color: transparent;
+      animation: aperture-rotate 2s ease-in-out infinite;
+    }
+    .aperture .blade:nth-child(1) { top: 0; left: 8px; animation-delay: 0s; }
+    .aperture .blade:nth-child(2) { top: 4px; left: 15px; animation-delay: 0.3s; }
+    .aperture .blade:nth-child(3) { top: 12px; left: 15px; animation-delay: 0.6s; }
+    .aperture .blade:nth-child(4) { top: 17px; left: 8px; animation-delay: 0.9s; }
+    .aperture .blade:nth-child(5) { top: 12px; left: 0; animation-delay: 1.2s; }
+    .aperture .blade:nth-child(6) { top: 4px; left: 0; animation-delay: 1.5s; }
+    .scan-line { position: absolute; inset: 16px; border-radius: 50%; overflow: hidden; }
+    .scan-line::before {
+      content: ''; position: absolute; top: 0; left: 50%; width: 1px; height: 50%;
+      background: linear-gradient(to bottom, var(--accent), transparent);
+      transform-origin: bottom center; animation: scan-sweep 2.5s ease-in-out infinite;
+    }
+    .analysis-steps { width: 100%; display: flex; flex-direction: column; gap: 6px; }
+    .analysis-step {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; border-radius: var(--radius-xs);
+      background: var(--bg-input); border: 1px solid var(--border);
+      font-size: 13px; color: var(--text-3);
+      transition: all 0.5s ease;
+    }
+    .analysis-step.active { color: var(--text-1); background: var(--accent-dim); border-color: rgba(123,163,184,0.2); }
+    .analysis-step.done { color: var(--accent); }
+    .step-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--text-3); flex-shrink: 0;
+      transition: all 0.4s ease;
+    }
+    .analysis-step.active .step-dot { background: var(--accent); animation: dot-pulse 1s ease-in-out infinite; }
+    .analysis-step.done .step-dot { background: var(--accent); }
+
+    /* — 加载动画：生成 — */
+    .loader-generation {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 32px 0 24px;
+    }
+    .gen-orb-wrap { position: relative; width: 140px; height: 140px; margin-bottom: 24px; }
+    .gen-orb {
+      position: absolute; border-radius: 50%; filter: blur(1px);
+      animation: orb-morph 4s ease-in-out infinite;
+    }
+    .gen-orb-1 { width: 90px; height: 90px; top: 25px; left: 25px;
+      background: radial-gradient(circle, var(--accent-glow), transparent 70%); animation-duration: 3.5s; }
+    .gen-orb-2 { width: 70px; height: 70px; top: 35px; left: 35px;
+      background: radial-gradient(circle, rgba(123,163,184,0.2), transparent 70%); animation-duration: 4.2s; animation-delay: -1s; }
+    .gen-orb-3 { width: 50px; height: 50px; top: 45px; left: 45px;
+      background: radial-gradient(circle, rgba(123,163,184,0.3), transparent 70%); animation-duration: 3s; animation-delay: -2s; }
+    .gen-core {
+      position: absolute; top: 50%; left: 50%;
+      width: 10px; height: 10px; margin: -5px 0 0 -5px;
+      border-radius: 50%; background: var(--accent);
+      box-shadow: 0 0 20px var(--accent-glow), 0 0 40px var(--accent-dim);
+      animation: core-breathe 2s ease-in-out infinite;
+    }
+    .gen-halo {
+      position: absolute; inset: 8px; border-radius: 50%;
+      border: 1px solid rgba(123,163,184,0.12);
+      animation: halo-expand 3s ease-in-out infinite;
+    }
+    .gen-particles { position: absolute; inset: 0; }
+    .gen-particle {
+      position: absolute; width: 3px; height: 3px; border-radius: 50%;
+      background: var(--accent); opacity: 0;
+      animation: particle-float 3s ease-in-out infinite;
+    }
+    .gen-particle:nth-child(1) { top: 20%; left: 15%; animation-delay: 0s; }
+    .gen-particle:nth-child(2) { top: 70%; left: 20%; animation-delay: 0.5s; }
+    .gen-particle:nth-child(3) { top: 15%; left: 75%; animation-delay: 1s; }
+    .gen-particle:nth-child(4) { top: 75%; left: 80%; animation-delay: 1.5s; }
+    .gen-particle:nth-child(5) { top: 45%; left: 10%; animation-delay: 2s; }
+    .gen-particle:nth-child(6) { top: 50%; left: 88%; animation-delay: 2.5s; }
+    .gen-progress { width: 100%; text-align: center; }
+    .gen-phase { font-size: 14px; color: var(--text-1); font-weight: 500; margin-bottom: 8px; min-height: 22px; }
+    .gen-bar-wrap { width: 100%; height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; }
+    .gen-bar { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--accent), rgba(123,163,184,0.5)); width: 0%; transition: width 1.5s ease; }
+    .gen-time { font-size: 12px; color: var(--text-3); margin-top: 8px; }
+
+    /* — 设置面板 — */
+    .settings-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+      z-index: 60; opacity: 0; pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .settings-overlay.open { opacity: 1; pointer-events: auto; }
+    .settings-panel {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--bg-card);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border-top: 1px solid var(--border);
+      border-radius: var(--radius) var(--radius) 0 0;
+      padding: 24px 20px 32px;
+      box-shadow: 0 -8px 32px rgba(0,0,0,0.2);
+      transform: translateY(100%);
+      transition: transform 0.35s ease;
+      z-index: 61;
+    }
+    .settings-overlay.open .settings-panel { transform: translateY(0); }
+    .settings-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .settings-title { font-size: 17px; font-weight: 700; }
+    .close-btn {
+      width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border);
+      background: var(--bg-input); display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.2s ease;
+    }
+    .close-btn:hover { background: var(--bg-hover); }
+    .close-btn svg { width: 16px; height: 16px; fill: var(--text-2); }
+    .esp-row { display: flex; gap: 8px; margin-bottom: 12px; }
+    .esp-input {
+      flex: 1; padding: 12px 14px; border-radius: var(--radius-xs);
+      border: 1px solid var(--border); background: var(--bg-input);
+      color: var(--text-1); font-size: 15px; outline: none;
+      transition: border-color 0.2s ease;
+    }
+    .esp-input:focus { border-color: var(--accent); }
+    .esp-save-btn {
+      padding: 12px 16px; border-radius: var(--radius-xs);
+      border: none; background: var(--accent); color: #fff;
+      font-size: 14px; font-weight: 600; cursor: pointer;
+      transition: all 0.2s ease; white-space: nowrap;
+    }
+    .esp-save-btn:disabled { opacity: 0.5; }
+
+    /* — Animations — */
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes spin-reverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+    @keyframes pulse-breathe { 0%,100% { transform: scale(1); opacity: 0.6; } 50% { transform: scale(1.08); opacity: 1; } }
+    @keyframes aperture-rotate { 0%,100% { transform: rotate(0deg) scale(1); opacity: 0.6; } 50% { transform: rotate(30deg) scale(0.85); opacity: 1; } }
+    @keyframes scan-sweep { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    @keyframes dot-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.5); } }
+    @keyframes orb-morph {
+      0%,100% { border-radius: 42% 58% 63% 37% / 55% 45% 55% 45%; transform: rotate(0deg) scale(1); }
+      25% { border-radius: 55% 45% 38% 62% / 48% 58% 42% 52%; transform: rotate(45deg) scale(1.05); }
+      50% { border-radius: 38% 62% 55% 45% / 62% 38% 62% 38%; transform: rotate(90deg) scale(0.95); }
+      75% { border-radius: 60% 40% 45% 55% / 40% 60% 40% 60%; transform: rotate(135deg) scale(1.02); }
+    }
+    @keyframes core-breathe { 0%,100% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.3); opacity: 1; } }
+    @keyframes halo-expand { 0% { transform: scale(0.8); opacity: 0.6; } 50% { transform: scale(1.1); opacity: 0.2; } 100% { transform: scale(0.8); opacity: 0.6; } }
+    @keyframes particle-float { 0% { opacity: 0; transform: translateY(0) scale(0.5); } 20% { opacity: 0.8; } 80% { opacity: 0.8; } 100% { opacity: 0; transform: translateY(-20px) scale(1.2); } }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <h1>AI 摄影指导系统</h1>
-      <div class="desc">
-        流程：拍照上传 → 基础摄影诊断 → 选择优化目标 → 生成专业策略与理想结果图。
-      </div>
-
-      <input
-        id="photoInput"
-        class="hidden"
-        type="file"
-        accept="image/*"
-        capture="environment"
-      />
-
-      <button id="captureBtn" class="btn" type="button">拍照并分析</button>
-
-      <div id="status" class="status">等待拍照...</div>
-
-      <div class="preview-box" id="previewBox">
-        <img id="previewImg" alt="拍照预览" />
-        <div class="preview-text">刚刚拍摄并上传分析的画面</div>
-      </div>
-
-      <div class="hint">
-        提示：如果没有直接进入相机，浏览器可能会弹出“拍照 / 相册”选项，这属于正常现象。
-      </div>
-      <div class="small-note">
-        生成结果会同步到电脑展示页；配置好 ESP 屏幕 IP 后也会自动推送到设备。
-      </div>
+  <!-- Header -->
+  <header class="app-header">
+    <span class="header-title">AI 摄影指导</span>
+    <div class="header-actions">
+      <button class="icon-btn" id="themeToggle">
+        <svg class="icon-sun" viewBox="0 0 24 24"><path d="M12 18a6 6 0 1 1 0-12 6 6 0 0 1 0 12zm0-2a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM11 1h2v3h-2V1zm0 19h2v3h-2v-3zM3.515 4.929l1.414-1.414L7.05 5.636 5.636 7.05 3.515 4.93zM16.95 18.364l1.414-1.414 2.121 2.121-1.414 1.414-2.121-2.121zM1 11h3v2H1v-2zm19 0h3v2h-3v-2zM3.515 19.071l2.121-2.121 1.414 1.414-2.121 2.121-1.414-1.414zM16.95 5.636l2.121-2.121 1.414 1.414-2.121 2.121L16.95 5.636z"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24"><path d="M21.752 15.002A9.718 9.718 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998z"/></svg>
+      </button>
+      <button class="icon-btn" id="settingsBtn">
+        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+      </button>
     </div>
+  </header>
 
-    <div class="card">
-      <h2>屏幕连接设置</h2>
-      <div class="desc">手机在这里填写 ESP 屏幕 IP，保存后电脑端会自动使用该地址推图。</div>
-      <div class="inline-row">
-        <input id="espIpInput" class="text-input" type="text" inputmode="decimal" placeholder="例如：192.168.1.50" />
-        <button id="saveEspBtn" class="btn btn-inline" type="button">保存IP</button>
-      </div>
-      <div id="espConfigStatus" class="status">正在读取当前屏幕配置...</div>
-    </div>
-
-    <div id="resultSection" class="card section">
-      <h2>第一步：基础摄影诊断</h2>
-
-      <div class="row">
-        <span class="label">画面概括</span>
-        <span id="scene_summary">-</span>
-      </div>
-
-      <div class="row">
-        <span class="label">人物位置分析</span>
-        <span id="subject_position_analysis">-</span>
-      </div>
-
-      <div class="row">
-        <span class="label">拍摄角度分析</span>
-        <span id="camera_angle_analysis">-</span>
-      </div>
-
-      <div class="row">
-        <span class="label">景别匹配分析</span>
-        <span id="shot_size_analysis">-</span>
-      </div>
-
-      <div class="row">
-        <span class="label">构图问题诊断</span>
-        <span id="composition_analysis">-</span>
-      </div>
-
-      <div class="row">
-        <span class="label">光照源推测</span>
-        <span id="light_source_inference">-</span>
-      </div>
-
-      <div class="row">
-        <span class="label">推荐拍摄位置</span>
-        <span id="recommended_shooting_position">-</span>
-      </div>
-
-      <div class="big-action">
-        基础建议：<span id="suggested_adjustment">-</span>
-      </div>
-    </div>
-
-    <div id="intentSection" class="card">
-      <h2>第二步：选择你的优化目标</h2>
-      <div class="desc">选项会直接进入图像生成指令。系统只会强执行一个主目标，避免多种摄影技法相互冲突。</div>
-      <div id="intentGroups"></div>
-
-      <button id="generateBtn" class="btn btn-secondary" type="button" disabled>生成专业策略与理想结果图</button>
-      <div id="strategyPreview" class="strategy-box">请先拍照并完成基础诊断，按钮会自动解锁。</div>
-      <div id="generateStatus" class="status"></div>
-    </div>
-
-    <div id="finalSection" class="card section">
-      <h2>第三步：策略结果</h2>
-      <div class="row">
-        <span class="label">实际优化重点</span>
-        <span id="effective_goal">-</span>
-      </div>
-      <div class="row">
-        <span class="label">构图目标</span>
-        <span id="composition_goal">-</span>
-      </div>
-      <div class="row">
-        <span class="label">机位与角度</span>
-        <span id="camera_plan">-</span>
-      </div>
-      <div class="row">
-        <span class="label">镜头与景别</span>
-        <span id="lens_plan">-</span>
-      </div>
-      <div class="row">
-        <span class="label">人物位置与姿态</span>
-        <span id="subject_plan">-</span>
-      </div>
-      <div class="row">
-        <span class="label">画幅与优化强度</span>
-        <span id="output_plan">-</span>
-      </div>
-    </div>
-    <div id="bottomGallerySection" class="card">
-      <h2>底部图片预览</h2>
-      <div class="bottom-original-card">
-        <div class="sub-title">最新拍摄图片</div>
-        <div class="bottom-original-box">
-          <img id="bottomOriginalImg" alt="最新拍摄图片" />
+  <!-- Wizard -->
+  <div class="wizard">
+    <!-- Step 1: 拍照 -->
+    <div class="step active" data-step="1">
+      <div class="step-hero">
+        <div class="icon-large">
+          <svg viewBox="0 0 24 24"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
         </div>
-        <div id="bottomOriginalEmpty" class="small-note">暂无图片。</div>
+        <h2>拍摄一张照片</h2>
+        <p>拍摄你想要分析的照片<br>系统将从构图、光线、景别等维度进行诊断</p>
+        <input id="photoInput" type="file" accept="image/*" capture="environment" style="display:none" />
+        <button id="captureBtn" class="capture-btn" type="button">
+          <svg viewBox="0 0 24 24"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
+          拍照并分析
+        </button>
+        <div class="step1-hint">拍照后会自动进入诊断分析，结果将同步到电脑展示页和 ESP 屏幕。</div>
       </div>
+    </div>
 
-      <div class="sub-title">AI 生成图（最多4张）</div>
-      <div id="bottomAiEmpty" class="small-note">尚未点击“生成专业策略与理想结果图”。</div>
-      <div id="bottomAiGrid" class="bottom-ai-grid" style="display:none;"></div>
+    <!-- Step 2: 诊断 -->
+    <div class="step" data-step="2">
+      <!-- 预览图 -->
+      <div class="preview-img-wrap" id="previewWrap" style="display:none">
+        <img id="previewImg" alt="拍摄预览" />
+      </div>
+      <!-- 加载动画 -->
+      <div class="loader-diagnosis" id="diagLoader">
+        <div class="loader-ring-wrap">
+          <div class="ring-outer"></div>
+          <div class="ring-mid"></div>
+          <div class="ring-inner">
+            <div class="aperture">
+              <div class="blade"></div><div class="blade"></div><div class="blade"></div>
+              <div class="blade"></div><div class="blade"></div><div class="blade"></div>
+            </div>
+          </div>
+          <div class="scan-line"></div>
+        </div>
+        <div class="analysis-steps" id="diagSteps">
+          <div class="analysis-step" data-index="0"><div class="step-dot"></div><span>识别画面主体与构图</span></div>
+          <div class="analysis-step" data-index="1"><div class="step-dot"></div><span>分析光照与色彩环境</span></div>
+          <div class="analysis-step" data-index="2"><div class="step-dot"></div><span>评估拍摄角度与景别</span></div>
+          <div class="analysis-step" data-index="3"><div class="step-dot"></div><span>生成摄影诊断建议</span></div>
+        </div>
+      </div>
+      <!-- 诊断结果 -->
+      <div id="diagResult" style="display:none">
+        <div class="glass-card">
+          <div class="card-title">摄影诊断报告</div>
+          <div class="card-subtitle">以下是对你照片的专业分析</div>
+        </div>
+        <div class="report-grid" id="reportGrid">
+          <div class="report-row"><span class="report-label">画面概括</span><span class="report-value" id="scene_summary">-</span></div>
+          <div class="report-row"><span class="report-label">人物位置分析</span><span class="report-value" id="subject_position_analysis">-</span></div>
+          <div class="report-row"><span class="report-label">拍摄角度分析</span><span class="report-value" id="camera_angle_analysis">-</span></div>
+          <div class="report-row"><span class="report-label">景别匹配分析</span><span class="report-value" id="shot_size_analysis">-</span></div>
+          <div class="report-row"><span class="report-label">构图问题诊断</span><span class="report-value" id="composition_analysis">-</span></div>
+          <div class="report-row"><span class="report-label">光照源推测</span><span class="report-value" id="light_source_inference">-</span></div>
+          <div class="report-row"><span class="report-label">推荐拍摄位置</span><span class="report-value" id="recommended_shooting_position">-</span></div>
+        </div>
+        <div class="suggestion-box">
+          <div class="suggestion-label">基础建议</div>
+          <div class="suggestion-text" id="suggested_adjustment">-</div>
+        </div>
+      </div>
+      <div id="diagStatus" class="status-text" style="text-align:center;"></div>
+    </div>
+
+    <!-- Step 3: 选择目标 -->
+    <div class="step" data-step="3">
+      <div class="glass-card">
+        <div class="card-title">选择优化目标</div>
+        <div class="card-subtitle">选项会直接进入图像生成指令，系统会强执行一个主目标。</div>
+      </div>
+      <div id="intentGroups"></div>
+      <div class="summary-bar" id="intentSummary"></div>
+      <button id="generateBtn" class="generate-btn" type="button" disabled>生成专业策略与理想结果图</button>
+      <div id="genStatus" class="status-text" style="text-align:center;"></div>
+    </div>
+
+    <!-- Step 4: 结果 -->
+    <div class="step" data-step="4">
+      <!-- 生成动画 -->
+      <div class="loader-generation" id="genLoader" style="display:none">
+        <div class="gen-orb-wrap">
+          <div class="gen-halo"></div><div class="gen-halo"></div><div class="gen-halo"></div>
+          <div class="gen-orb gen-orb-1"></div>
+          <div class="gen-orb gen-orb-2"></div>
+          <div class="gen-orb gen-orb-3"></div>
+          <div class="gen-core"></div>
+          <div class="gen-particles">
+            <div class="gen-particle"></div><div class="gen-particle"></div><div class="gen-particle"></div>
+            <div class="gen-particle"></div><div class="gen-particle"></div><div class="gen-particle"></div>
+          </div>
+        </div>
+        <div class="gen-progress">
+          <div class="gen-phase" id="genPhase">正在构建优化策略…</div>
+          <div class="gen-bar-wrap"><div class="gen-bar" id="genBar"></div></div>
+          <div class="gen-time" id="genTime">预计等待 15-30 秒</div>
+        </div>
+      </div>
+      <!-- 结果内容 -->
+      <div id="resultContent" style="display:none">
+        <div class="glass-card">
+          <div class="card-title">策略结果</div>
+        </div>
+        <div class="strategy-grid" id="strategyGrid">
+          <div class="strategy-row"><span class="strategy-label">实际优化重点</span><span class="strategy-value" id="effective_goal">-</span></div>
+          <div class="strategy-row"><span class="strategy-label">构图目标</span><span class="strategy-value" id="composition_goal">-</span></div>
+          <div class="strategy-row"><span class="strategy-label">机位与角度</span><span class="strategy-value" id="camera_plan">-</span></div>
+          <div class="strategy-row"><span class="strategy-label">镜头与景别</span><span class="strategy-value" id="lens_plan">-</span></div>
+          <div class="strategy-row"><span class="strategy-label">人物位置与姿态</span><span class="strategy-value" id="subject_plan">-</span></div>
+          <div class="strategy-row"><span class="strategy-label">画幅与优化强度</span><span class="strategy-value" id="output_plan">-</span></div>
+        </div>
+        <div class="glass-card">
+          <div class="card-title">AI 生成图</div>
+          <div class="card-subtitle">点击图片可设为屏幕主图</div>
+        </div>
+        <div class="ai-grid" id="aiGrid"></div>
+        <button class="restart-btn" id="restartBtn" type="button">重新拍摄</button>
+      </div>
+      <div id="resultStatus" class="status-text" style="text-align:center;"></div>
     </div>
   </div>
 
+  <!-- Bottom bar -->
+  <nav class="bottom-bar">
+    <button class="nav-btn secondary" id="btnBack" style="visibility:hidden">上一步</button>
+    <div class="progress-dots" id="progressDots">
+      <div class="progress-dot active" data-dot="1"></div>
+      <div class="progress-dot" data-dot="2"></div>
+      <div class="progress-dot" data-dot="3"></div>
+      <div class="progress-dot" data-dot="4"></div>
+    </div>
+    <button class="nav-btn primary" id="btnNext" disabled>下一步</button>
+  </nav>
+
+  <!-- Settings overlay -->
+  <div class="settings-overlay" id="settingsOverlay">
+    <div class="settings-panel">
+      <div class="settings-header">
+        <span class="settings-title">屏幕连接设置</span>
+        <button class="close-btn" id="closeSettings"><svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+      </div>
+      <div class="esp-row">
+        <input id="espIpInput" class="esp-input" type="text" inputmode="decimal" placeholder="ESP 屏幕 IP，如 192.168.1.50" />
+        <button id="saveEspBtn" class="esp-save-btn" type="button">保存</button>
+      </div>
+      <div id="espConfigStatus" class="status-text">正在读取配置…</div>
+    </div>
+  </div>
+
+  <!-- Jinja2 data -->
+  <script type="application/json" id="intentSchemaData">{{ optimization_schema | tojson }}</script>
+  <script type="application/json" id="defaultIntentData">{{ default_user_intent | tojson }}</script>
+
   <script>
-    const photoInput = document.getElementById("photoInput");
-    const captureBtn = document.getElementById("captureBtn");
-    const statusEl = document.getElementById("status");
-    const previewBox = document.getElementById("previewBox");
-    const previewImg = document.getElementById("previewImg");
-    const resultSection = document.getElementById("resultSection");
-    const intentSection = document.getElementById("intentSection");
-    const finalSection = document.getElementById("finalSection");
-    const generateBtn = document.getElementById("generateBtn");
-    const generateStatus = document.getElementById("generateStatus");
-    const strategyPreview = document.getElementById("strategyPreview");
-    const espIpInput = document.getElementById("espIpInput");
-    const saveEspBtn = document.getElementById("saveEspBtn");
-    const espConfigStatus = document.getElementById("espConfigStatus");
-    const bottomOriginalImg = document.getElementById("bottomOriginalImg");
-    const bottomOriginalEmpty = document.getElementById("bottomOriginalEmpty");
-    const bottomAiEmpty = document.getElementById("bottomAiEmpty");
-    const bottomAiGrid = document.getElementById("bottomAiGrid");
-    const intentGroups = document.getElementById("intentGroups");
-    let currentSessionId = "";
+    // ===== Data =====
+    let intentSchema = [];
+    let selectedIntent = {};
+    try { intentSchema = JSON.parse(document.getElementById('intentSchemaData').textContent); } catch(e) {}
+    try { selectedIntent = JSON.parse(document.getElementById('defaultIntentData').textContent); } catch(e) {}
+
+    // ===== State =====
+    let currentStep = 1;
+    let currentSessionId = '';
     let diagnosisComplete = false;
     let generationInProgress = false;
-    const intentSchema = {{ optimization_schema | tojson }};
-    const selectedIntent = {{ default_user_intent | tojson }};
 
-    function setStatus(text, type = "") {
-      statusEl.textContent = text;
-      statusEl.className = "status";
-      if (type === "ok") statusEl.classList.add("ok");
-      if (type === "err") statusEl.classList.add("err");
+    // ===== Elements =====
+    const el = {
+      steps: document.querySelectorAll('.step'),
+      dots: document.querySelectorAll('.progress-dot'),
+      btnBack: document.getElementById('btnBack'),
+      btnNext: document.getElementById('btnNext'),
+      captureBtn: document.getElementById('captureBtn'),
+      photoInput: document.getElementById('photoInput'),
+      previewWrap: document.getElementById('previewWrap'),
+      previewImg: document.getElementById('previewImg'),
+      diagLoader: document.getElementById('diagLoader'),
+      diagResult: document.getElementById('diagResult'),
+      diagStatus: document.getElementById('diagStatus'),
+      diagSteps: document.querySelectorAll('#diagSteps .analysis-step'),
+      intentGroups: document.getElementById('intentGroups'),
+      intentSummary: document.getElementById('intentSummary'),
+      generateBtn: document.getElementById('generateBtn'),
+      genStatus: document.getElementById('genStatus'),
+      genLoader: document.getElementById('genLoader'),
+      genPhase: document.getElementById('genPhase'),
+      genBar: document.getElementById('genBar'),
+      genTime: document.getElementById('genTime'),
+      resultContent: document.getElementById('resultContent'),
+      resultStatus: document.getElementById('resultStatus'),
+      aiGrid: document.getElementById('aiGrid'),
+      restartBtn: document.getElementById('restartBtn'),
+      settingsOverlay: document.getElementById('settingsOverlay'),
+      settingsBtn: document.getElementById('settingsBtn'),
+      closeSettings: document.getElementById('closeSettings'),
+      espIpInput: document.getElementById('espIpInput'),
+      saveEspBtn: document.getElementById('saveEspBtn'),
+      espConfigStatus: document.getElementById('espConfigStatus'),
+      themeToggle: document.getElementById('themeToggle'),
+    };
+
+    // ===== Theme =====
+    const root = document.documentElement;
+    el.themeToggle.addEventListener('click', () => {
+      const isDark = root.getAttribute('data-theme') === 'dark';
+      root.setAttribute('data-theme', isDark ? 'light' : 'dark');
+      localStorage.setItem('pa-theme', isDark ? 'light' : 'dark');
+    });
+    const savedTheme = localStorage.getItem('pa-theme');
+    if (savedTheme) root.setAttribute('data-theme', savedTheme);
+
+    // ===== Settings =====
+    el.settingsBtn.addEventListener('click', () => el.settingsOverlay.classList.add('open'));
+    el.closeSettings.addEventListener('click', () => el.settingsOverlay.classList.remove('open'));
+    el.settingsOverlay.addEventListener('click', e => { if (e.target === el.settingsOverlay) el.settingsOverlay.classList.remove('open'); });
+
+    // ===== Step navigation =====
+    function goToStep(step, dir) {
+      if (step === currentStep || step < 1 || step > 4) return;
+      const dirClass = dir || (step > currentStep ? 'forward' : 'backward');
+      const prevStep = currentStep;
+      currentStep = step;
+      el.steps.forEach(s => {
+        const n = parseInt(s.dataset.step);
+        s.classList.remove('active', 'exit-left', 'step-enter-from-left');
+        if (n === prevStep) {
+          s.classList.add(dirClass === 'forward' ? 'exit-left' : '');
+          setTimeout(() => s.classList.remove('exit-left'), 400);
+        }
+        if (n === step) {
+          if (dirClass === 'forward') { s.style.transform = 'translateX(60px)'; }
+          else { s.classList.add('step-enter-from-left'); }
+          requestAnimationFrame(() => {
+            s.style.transform = '';
+            s.classList.remove('step-enter-from-left');
+            s.classList.add('active');
+          });
+        }
+      });
+      el.dots.forEach(d => {
+        const n = parseInt(d.dataset.dot);
+        d.classList.remove('active', 'done');
+        if (n === step) d.classList.add('active');
+        else if (n < step) d.classList.add('done');
+      });
+      // Reset scroll to top on step change
+      const targetStep = document.querySelector(`.step[data-step="${step}"]`);
+      if (targetStep) targetStep.scrollTop = 0;
+      el.btnBack.style.visibility = step === 1 ? 'hidden' : 'visible';
+      updateNextBtn();
     }
 
-    function setField(id, value) {
-      document.getElementById(id).textContent = value || "-";
+    function updateNextBtn() {
+      if (currentStep === 1) {
+        el.btnNext.disabled = true; el.btnNext.textContent = '下一步';
+      } else if (currentStep === 2) {
+        el.btnNext.disabled = !diagnosisComplete; el.btnNext.textContent = '下一步';
+      } else if (currentStep === 3) {
+        el.btnNext.style.display = 'none'; // 使用"生成"按钮替代
+      } else {
+        el.btnNext.style.display = ''; el.btnNext.disabled = true; el.btnNext.textContent = '下一步';
+      }
     }
 
+    el.btnBack.addEventListener('click', () => { if (currentStep > 1) goToStep(currentStep - 1, 'backward'); });
+    el.btnNext.addEventListener('click', () => {
+      if (currentStep === 2 && diagnosisComplete) goToStep(3, 'forward');
+    });
+    el.restartBtn.addEventListener('click', () => {
+      currentSessionId = ''; diagnosisComplete = false; generationInProgress = false;
+      el.previewWrap.style.display = 'none'; el.diagResult.style.display = 'none';
+      el.diagLoader.style.display = ''; el.diagStatus.textContent = '';
+      el.diagSteps.forEach(s => s.classList.remove('active', 'done'));
+      el.genLoader.style.display = 'none'; el.resultContent.style.display = 'none';
+      el.resultStatus.textContent = ''; el.genStatus.textContent = '';
+      el.aiGrid.innerHTML = '';
+      el.generateBtn.disabled = true;
+      el.genBar.style.width = '0%';
+      el.genPhase.textContent = '正在构建优化策略…';
+      el.genTime.textContent = '预计等待 15-30 秒';
+      goToStep(1, 'backward');
+      setTimeout(() => {
+        el.diagLoader.style.display = '';
+      }, 400);
+    });
+
+    // ===== Utility =====
+    function setStatus(elNode, text, type) {
+      elNode.textContent = text;
+      elNode.className = 'status-text' + (type === 'ok' ? ' ok' : type === 'err' ? ' err' : '');
+    }
+    function setField(id, val) { const e = document.getElementById(id); if (e) e.textContent = val || '-'; }
     function toDisplayUrl(url) {
-      if (!url) return "";
+      if (!url) return '';
       try {
         const u = new URL(url, window.location.origin);
-        const isSameOrigin = u.origin === window.location.origin;
-        const isLocalPath = u.pathname.startsWith("/uploads/") || u.pathname.startsWith("/static/");
-        // 只给本地资源加时间戳，避免破坏第三方签名外链。
-        if (isSameOrigin && isLocalPath) {
-          u.searchParams.set("_t", String(Date.now()));
+        if (u.origin === window.location.origin && (u.pathname.startsWith('/uploads/') || u.pathname.startsWith('/static/'))) {
+          u.searchParams.set('_t', String(Date.now()));
           return u.toString();
         }
         return url;
-      } catch (e) {
-        return url;
+      } catch(e) { return url; }
+    }
+
+    // ===== Diagnosis animation =====
+    let diagAnimTimer = null;
+    function startDiagAnim() {
+      clearInterval(diagAnimTimer);
+      el.diagSteps.forEach(s => s.classList.remove('active', 'done'));
+      let i = 0;
+      el.diagSteps[0].classList.add('active');
+      diagAnimTimer = setInterval(() => {
+        if (i < el.diagSteps.length) { el.diagSteps[i].classList.remove('active'); el.diagSteps[i].classList.add('done'); }
+        i++;
+        if (i < el.diagSteps.length) { el.diagSteps[i].classList.add('active'); }
+        else { clearInterval(diagAnimTimer); }
+      }, 2000);
+    }
+    function stopDiagAnim() { clearInterval(diagAnimTimer); el.diagSteps.forEach(s => { s.classList.remove('active'); s.classList.add('done'); }); }
+
+    // ===== Generation animation =====
+    const genStages = [
+      { text: '正在构建优化策略…', pct: 15, time: '预计等待 20-30 秒' },
+      { text: '分析摄影参数与目标…', pct: 30, time: '预计等待 15-25 秒' },
+      { text: '调用图像生成模型…', pct: 52, time: '预计等待 10-20 秒' },
+      { text: '渲染理想效果画面…', pct: 72, time: '预计等待 5-15 秒' },
+      { text: '优化画质与细节…', pct: 88, time: '即将完成…' },
+      { text: '生成完成', pct: 100, time: '' },
+    ];
+    let genAnimTimer = null;
+    function startGenAnim() {
+      clearTimeout(genAnimTimer);
+      el.genBar.style.width = '0%';
+      let i = 0;
+      function next() {
+        if (i >= genStages.length || !generationInProgress) return;
+        const s = genStages[i];
+        el.genPhase.textContent = s.text;
+        el.genBar.style.width = s.pct + '%';
+        el.genTime.textContent = s.time;
+        i++;
+        genAnimTimer = setTimeout(next, 2500);
       }
+      next();
+    }
+    function stopGenAnim() {
+      clearTimeout(genAnimTimer);
+      el.genPhase.textContent = '生成完成';
+      el.genBar.style.width = '100%';
+      el.genTime.textContent = '';
     }
 
-    function clearGeneratedGallery(message = "尚未点击“生成专业策略与理想结果图”。") {
-      bottomAiGrid.style.display = "none";
-      bottomAiGrid.innerHTML = "";
-      bottomAiEmpty.textContent = message;
-      bottomAiEmpty.style.display = "block";
-    }
-
-    async function chooseAndPushCandidate(item, card, button) {
-      const imageRef = (item && item.diagram_url || "").trim();
-      if (!imageRef) return;
-      try {
-        button.disabled = true;
-        button.textContent = "正在推送...";
-        const resp = await fetch("/api/push_latest_to_esp", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image_ref: imageRef, include_all: false })
-        });
-        const data = await resp.json();
-        if (!resp.ok || !data.ok) {
-          throw new Error(data.msg || "推送失败");
-        }
-        bottomAiGrid.querySelectorAll(".bottom-ai-item").forEach((node) => node.classList.remove("selected"));
-        bottomAiGrid.querySelectorAll(".candidate-btn").forEach((node) => {
-          node.textContent = "选为屏幕主图";
-        });
-        card.classList.add("selected");
-        button.textContent = "已选为屏幕主图";
-        setGenerateStatus(`已推送 ${item.model || "AI结果"} 到设备屏幕。`, "ok");
-      } catch (err) {
-        button.textContent = "重试推送";
-        setGenerateStatus("推送失败：" + (err.message || err), "err");
-      } finally {
-        button.disabled = false;
-      }
-    }
-
-    function renderBottomGallery(data, showGeneratedImages = false) {
-      if (!data) return;
-
-      const previewUrl = (data.preview_url || "").trim();
-      if (previewUrl) {
-        bottomOriginalImg.src = toDisplayUrl(previewUrl);
-        bottomOriginalImg.style.display = "block";
-        bottomOriginalEmpty.style.display = "none";
-      } else {
-        bottomOriginalImg.style.display = "none";
-        bottomOriginalEmpty.style.display = "block";
-      }
-
-      let candidates = showGeneratedImages && Array.isArray(data.model_candidates)
-        ? data.model_candidates
-        : [];
-      if (showGeneratedImages && !candidates.length && data.diagram_url) {
-        candidates = [{ model: data.image_model || "AI结果", diagram_url: data.diagram_url }];
-      }
-      const displayCandidates = candidates.filter((item) => item && item.diagram_url).slice(0, 4);
-
-      if (!displayCandidates.length) {
-        clearGeneratedGallery();
-        return;
-      }
-
-      bottomAiGrid.innerHTML = "";
-      displayCandidates.forEach((item) => {
-        const model = item.model || "AI结果";
-        const isPrimary = item.diagram_url === data.diagram_url;
-        const card = document.createElement("div");
-        card.className = "bottom-ai-item" + (isPrimary ? " selected" : "");
-
-        const title = document.createElement("div");
-        title.className = "bottom-ai-title";
-        title.textContent = model + (isPrimary ? " · 系统首选" : "");
-        card.appendChild(title);
-
-        const img = document.createElement("img");
-        img.src = toDisplayUrl(item.diagram_url || "");
-        img.alt = model;
-        img.loading = "lazy";
-        card.appendChild(img);
-
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "candidate-btn";
-        button.textContent = isPrimary ? "当前屏幕主图" : "选为屏幕主图";
-        button.addEventListener("click", () => chooseAndPushCandidate(item, card, button));
-        card.appendChild(button);
-        bottomAiGrid.appendChild(card);
-      });
-      bottomAiGrid.style.display = "grid";
-      bottomAiEmpty.style.display = "none";
-    }
-
-    async function loadLatestResultForBottomGallery() {
-      try {
-        const resp = await fetch("/api/latest_result?t=" + Date.now());
-        if (!resp.ok) return;
-        const data = await resp.json();
-        // 页面初始化只恢复上一张原图，不展示上一会话的 AI 生成图。
-        renderBottomGallery(data, false);
-      } catch (err) {
-        console.error(err);
-      }
-    }
-
-    function setGenerateStatus(text, type = "") {
-      generateStatus.textContent = text;
-      generateStatus.className = "status";
-      if (type === "ok") generateStatus.classList.add("ok");
-      if (type === "err") generateStatus.classList.add("err");
-    }
-
-    function setGenerateReady(ready) {
-      diagnosisComplete = Boolean(ready);
-      generateBtn.disabled = !diagnosisComplete || generationInProgress;
-      if (!diagnosisComplete) {
-        finalSection.style.display = "none";
-      }
-    }
-
-    function setEspConfigStatus(text, type = "") {
-      espConfigStatus.textContent = text;
-      espConfigStatus.className = "status";
-      if (type === "ok") espConfigStatus.classList.add("ok");
-      if (type === "err") espConfigStatus.classList.add("err");
-    }
-
-    async function loadEspConfig() {
-      try {
-        const resp = await fetch("/api/esp_config");
-        const data = await resp.json();
-        if (!resp.ok || !data.ok) {
-          throw new Error(data.msg || "读取配置失败");
-        }
-
-        espIpInput.value = data.esp_ip || "";
-        if (data.esp_ip) {
-          setEspConfigStatus(`当前屏幕地址：${data.esp_ip}:${data.esp_port || 80}`, "ok");
-        } else {
-          setEspConfigStatus("还未设置屏幕 IP，请先填写并保存。");
-        }
-      } catch (err) {
-        console.error(err);
-        setEspConfigStatus("读取屏幕配置失败：" + (err.message || err), "err");
-      }
-    }
-
+    // ===== Intent chips =====
     function selectedIntentSummary() {
-      return intentSchema.map((group) => {
-        const selected = group.options.find((option) => option.value === selectedIntent[group.key]);
-        return `${group.label}：${selected ? selected.label : "-"}`;
-      }).join(" / ");
+      return intentSchema.map(g => {
+        const sel = g.options.find(o => o.value === selectedIntent[g.key]);
+        return `${g.label}：${sel ? sel.label : '-'}`;
+      }).join(' / ');
     }
-
     function renderChips(group) {
-      const groupKey = group.key;
-      const wrap = document.getElementById(groupKey + "_chips");
-      const selectedHint = document.getElementById(groupKey + "_hint");
-      wrap.innerHTML = "";
-      group.options.forEach((option) => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "chip" + (selectedIntent[groupKey] === option.value ? " active" : "");
-        btn.textContent = option.label;
-        btn.title = option.hint || "";
-        btn.setAttribute("aria-pressed", selectedIntent[groupKey] === option.value ? "true" : "false");
-        btn.addEventListener("click", () => {
-          selectedIntent[groupKey] = option.value;
+      const wrap = document.getElementById(group.key + '_chips');
+      const hint = document.getElementById(group.key + '_hint');
+      if (!wrap) return;
+      wrap.innerHTML = '';
+      group.options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.type = 'button'; btn.className = 'chip' + (selectedIntent[group.key] === opt.value ? ' active' : '');
+        btn.textContent = opt.label; btn.title = opt.hint || '';
+        btn.addEventListener('click', () => {
+          selectedIntent[group.key] = opt.value;
           renderChips(group);
-          strategyPreview.textContent = `已选择：${selectedIntentSummary()}`;
+          el.intentSummary.textContent = selectedIntentSummary();
         });
         wrap.appendChild(btn);
       });
-      const selected = group.options.find((option) => option.value === selectedIntent[groupKey]);
-      selectedHint.textContent = selected && selected.hint ? `当前作用：${selected.hint}` : "";
+      const sel = group.options.find(o => o.value === selectedIntent[group.key]);
+      hint.textContent = sel && sel.hint ? `当前作用：${sel.hint}` : '';
     }
-
     function renderAllChips() {
-      intentGroups.innerHTML = "";
-      intentSchema.forEach((group) => {
-        const section = document.createElement("section");
-        section.className = "intent-group";
-
-        const title = document.createElement("div");
-        title.className = "sub-title";
-        title.textContent = group.label;
-        section.appendChild(title);
-
-        const help = document.createElement("div");
-        help.className = "intent-help";
-        help.textContent = group.help || "";
-        section.appendChild(help);
-
-        const chips = document.createElement("div");
-        chips.id = group.key + "_chips";
-        chips.className = "chips";
-        section.appendChild(chips);
-
-        const selectedHint = document.createElement("div");
-        selectedHint.id = group.key + "_hint";
-        selectedHint.className = "intent-option-hint";
-        section.appendChild(selectedHint);
-        intentGroups.appendChild(section);
+      el.intentGroups.innerHTML = '';
+      intentSchema.forEach(group => {
+        const sec = document.createElement('div'); sec.className = 'intent-section';
+        sec.innerHTML = `<div class="intent-title">${group.label}</div><div class="intent-help">${group.help || ''}</div>`;
+        const chips = document.createElement('div'); chips.className = 'chips-scroll'; chips.id = group.key + '_chips';
+        sec.appendChild(chips);
+        const hint = document.createElement('div'); hint.className = 'intent-hint'; hint.id = group.key + '_hint';
+        sec.appendChild(hint);
+        el.intentGroups.appendChild(sec);
         renderChips(group);
       });
-      strategyPreview.textContent = `已选择：${selectedIntentSummary()}`;
+      el.intentSummary.textContent = selectedIntentSummary();
     }
 
-    captureBtn.addEventListener("click", () => {
-      photoInput.click();
-    });
-
-    photoInput.addEventListener("change", async () => {
-      const file = photoInput.files && photoInput.files[0];
-      if (!file) {
-        setStatus("未选择图片。", "err");
-        return;
-      }
-
+    // ===== ESP config =====
+    async function loadEspConfig() {
       try {
-        captureBtn.disabled = true;
-        currentSessionId = "";
-        generationInProgress = false;
-        resultSection.style.display = "none";
-        finalSection.style.display = "none";
-        setGenerateReady(false);
-        clearGeneratedGallery();
-        setStatus("正在上传并执行基础摄影诊断，请稍候...");
+        const r = await fetch('/api/esp_config');
+        const d = await r.json();
+        if (!r.ok || !d.ok) throw new Error(d.msg || '读取失败');
+        el.espIpInput.value = d.esp_ip || '';
+        setStatus(el.espConfigStatus, d.esp_ip ? `当前屏幕地址：${d.esp_ip}:${d.esp_port || 80}` : '还未设置屏幕 IP。', d.esp_ip ? 'ok' : '');
+      } catch(e) { setStatus(el.espConfigStatus, '读取失败：' + e.message, 'err'); }
+    }
+    el.saveEspBtn.addEventListener('click', async () => {
+      const ip = (el.espIpInput.value || '').trim();
+      if (!ip) { setStatus(el.espConfigStatus, '请先输入 IP。', 'err'); return; }
+      try {
+        el.saveEspBtn.disabled = true; setStatus(el.espConfigStatus, '正在保存…');
+        const r = await fetch('/api/esp_config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ esp_ip: ip }) });
+        const d = await r.json();
+        if (!r.ok || !d.ok) throw new Error(d.msg || '保存失败');
+        el.espIpInput.value = d.esp_ip || ip;
+        setStatus(el.espConfigStatus, d.msg || '保存成功。', 'ok');
+      } catch(e) { setStatus(el.espConfigStatus, '保存失败：' + e.message, 'err'); }
+      finally { el.saveEspBtn.disabled = false; }
+    });
 
+    // ===== Push to ESP =====
+    async function pushCandidate(item, card, button) {
+      const ref = (item && item.diagram_url || '').trim();
+      if (!ref) return;
+      try {
+        button.disabled = true; button.textContent = '正在推送…';
+        const r = await fetch('/api/push_latest_to_esp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image_ref: ref, include_all: false }) });
+        const d = await r.json();
+        if (!r.ok || !d.ok) throw new Error(d.msg || '推送失败');
+        el.aiGrid.querySelectorAll('.ai-card').forEach(c => c.classList.remove('selected'));
+        el.aiGrid.querySelectorAll('.push-btn').forEach(b => { b.textContent = '选为屏幕主图'; });
+        card.classList.add('selected'); button.textContent = '已选为屏幕主图';
+        setStatus(el.resultStatus, `已推送 ${item.model || 'AI结果'} 到设备屏幕。`, 'ok');
+      } catch(e) { button.textContent = '重试推送'; setStatus(el.resultStatus, '推送失败：' + e.message, 'err'); }
+      finally { button.disabled = false; }
+    }
+
+    // ===== Photo capture =====
+    el.captureBtn.addEventListener('click', () => el.photoInput.click());
+    el.photoInput.addEventListener('change', async () => {
+      const file = el.photoInput.files && el.photoInput.files[0];
+      if (!file) return;
+      try {
+        el.captureBtn.disabled = true;
+        currentSessionId = ''; diagnosisComplete = false; generationInProgress = false;
+        el.diagResult.style.display = 'none'; el.diagLoader.style.display = '';
+        el.diagSteps.forEach(s => s.classList.remove('active', 'done'));
+        el.generateBtn.disabled = true; el.genStatus.textContent = '';
+        el.resultContent.style.display = 'none'; el.genLoader.style.display = 'none'; el.resultStatus.textContent = '';
+        el.aiGrid.innerHTML = '';
+
+        // Show preview
         const localUrl = URL.createObjectURL(file);
-        previewImg.src = localUrl;
-        previewBox.style.display = "block";
-        renderBottomGallery({ preview_url: localUrl }, false);
+        el.previewImg.src = localUrl;
+        el.previewWrap.style.display = '';
 
-        const formData = new FormData();
-        formData.append("photo", file);
+        // Go to step 2 and start diagnosis animation
+        goToStep(2, 'forward');
+        startDiagAnim();
+        setStatus(el.diagStatus, '正在上传并执行基础摄影诊断…');
 
-        const resp = await fetch("/api/diagnose", {
-          method: "POST",
-          body: formData
-        });
+        const fd = new FormData();
+        fd.append('photo', file);
+        const r = await fetch('/api/diagnose', { method: 'POST', body: fd });
+        const d = await r.json();
+        if (!r.ok || !d.ok) throw new Error(d.msg || '上传失败');
 
-        const data = await resp.json();
+        if (d.preview_url) el.previewImg.src = d.preview_url + '?t=' + Date.now();
 
-        if (!resp.ok || !data.ok) {
-          throw new Error(data.msg || "上传失败");
-        }
+        currentSessionId = d.session_id || '';
+        const ai = d.diagnosis_report || d.ai_result || {};
+        setField('scene_summary', ai.scene_summary);
+        setField('subject_position_analysis', ai.subject_position_analysis);
+        setField('camera_angle_analysis', ai.camera_angle_analysis);
+        setField('shot_size_analysis', ai.shot_size_analysis);
+        setField('composition_analysis', ai.composition_analysis);
+        setField('light_source_inference', ai.light_source_inference);
+        setField('recommended_shooting_position', ai.recommended_shooting_position);
+        setField('suggested_adjustment', ai.suggested_adjustment);
 
-        if (data.preview_url) {
-          previewImg.src = data.preview_url + "?t=" + Date.now();
-        }
-        renderBottomGallery(data, false);
-
-        currentSessionId = data.session_id || "";
-        const ai = data.diagnosis_report || data.ai_result || {};
-        setField("scene_summary", ai.scene_summary);
-        setField("subject_position_analysis", ai.subject_position_analysis);
-        setField("camera_angle_analysis", ai.camera_angle_analysis);
-        setField("shot_size_analysis", ai.shot_size_analysis);
-        setField("composition_analysis", ai.composition_analysis);
-        setField("light_source_inference", ai.light_source_inference);
-        setField("recommended_shooting_position", ai.recommended_shooting_position);
-        setField("suggested_adjustment", ai.suggested_adjustment);
-
-        resultSection.style.display = "block";
-        setGenerateReady(Boolean(currentSessionId));
-        renderAllChips();
-        setGenerateStatus("请先选择目标，再点击生成。");
-        setStatus("基础诊断完成 ✅ 请继续选择优化目标。", "ok");
-      } catch (err) {
-        console.error(err);
-        setStatus("拍照或分析失败：" + (err.message || err), "err");
+        stopDiagAnim();
+        setTimeout(() => {
+          el.diagLoader.style.display = 'none';
+          el.diagResult.style.display = '';
+          diagnosisComplete = true;
+          updateNextBtn();
+          renderAllChips();
+          setStatus(el.diagStatus, '诊断完成，点击"下一步"继续选择优化目标。', 'ok');
+        }, 800);
+      } catch(e) {
+        stopDiagAnim();
+        setStatus(el.diagStatus, '诊断失败：' + e.message, 'err');
       } finally {
-        captureBtn.disabled = false;
-        photoInput.value = "";
+        el.captureBtn.disabled = false; el.photoInput.value = '';
       }
     });
 
-    generateBtn.addEventListener("click", async (event) => {
-      event.preventDefault();
-      if (!currentSessionId || !diagnosisComplete) {
-        setGenerateStatus("缺少会话信息，请重新拍照。", "err");
-        return;
-      }
-      if (generationInProgress) return;
-
+    // ===== Generate =====
+    el.generateBtn.addEventListener('click', async () => {
+      if (!currentSessionId || !diagnosisComplete || generationInProgress) return;
       try {
         generationInProgress = true;
-        generateBtn.disabled = true;
-        setGenerateStatus("正在生成专业摄影策略与理想结果图...");
+        el.generateBtn.disabled = true;
+        el.genStatus.textContent = '';
+        goToStep(4, 'forward');
+        el.genLoader.style.display = '';
+        el.resultContent.style.display = 'none';
+        el.resultStatus.textContent = '';
+        startGenAnim();
 
-        const resp = await fetch("/api/generate", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            session_id: currentSessionId,
-            user_intent: selectedIntent,
-            generation_confirmed: true,
-            debug_compare: true
-          })
+        const r = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: currentSessionId, user_intent: selectedIntent, generation_confirmed: true, debug_compare: true })
         });
+        const d = await r.json();
+        if (!r.ok || !d.ok) throw new Error(d.msg || '生成失败');
 
-        const data = await resp.json();
-        if (!resp.ok || !data.ok) {
-          throw new Error(data.msg || "生成失败");
-        }
+        stopGenAnim();
+        setTimeout(() => {
+          el.genLoader.style.display = 'none';
+          el.resultContent.style.display = '';
 
-        const strategy = data.strategy_plan || {};
-        setField("effective_goal", strategy.effective_goal_label || strategy.optimization_goal_label);
-        setField("composition_goal", strategy.composition_goal);
-        setField("camera_plan", `${strategy.camera_height || "-"} + ${strategy.camera_angle || "-"}`);
-        setField("lens_plan", `${strategy.lens_feel || "-"} / ${strategy.shot_size_target || "-"}`);
-        setField("subject_plan", `${strategy.subject_position_target || "-"}；${strategy.pose_strategy || "-"}`);
-        setField("output_plan", `${strategy.output_ratio_label || "-"} / ${strategy.edit_strength_label || "-"}`);
-        finalSection.style.display = "block";
-        renderBottomGallery(data, true);
-        setGenerateStatus("生成完成 ✅ 电脑端已同步显示结果图。", "ok");
-      } catch (err) {
-        console.error(err);
-        setGenerateStatus("生成失败：" + (err.message || err), "err");
+          const s = d.strategy_plan || {};
+          setField('effective_goal', s.effective_goal_label || s.optimization_goal_label);
+          setField('composition_goal', s.composition_goal);
+          setField('camera_plan', `${s.camera_height || '-'} + ${s.camera_angle || '-'}`);
+          setField('lens_plan', `${s.lens_feel || '-'} / ${s.shot_size_target || '-'}`);
+          setField('subject_plan', `${s.subject_position_target || '-'}；${s.pose_strategy || '-'}`);
+          setField('output_plan', `${s.output_ratio_label || '-'} / ${s.edit_strength_label || '-'}`);
+
+          // Render AI images
+          el.aiGrid.innerHTML = '';
+          let candidates = Array.isArray(d.model_candidates) ? d.model_candidates : [];
+          if (!candidates.length && d.diagram_url) candidates = [{ model: d.image_model || 'AI结果', diagram_url: d.diagram_url }];
+          candidates.filter(i => i && i.diagram_url).slice(0, 4).forEach(item => {
+            const isPrimary = item.diagram_url === d.diagram_url;
+            const card = document.createElement('div'); card.className = 'ai-card' + (isPrimary ? ' selected' : '');
+            card.innerHTML = `<div class="ai-card-title">${item.model || 'AI结果'}${isPrimary ? ' · 首选' : ''}</div><img src="${toDisplayUrl(item.diagram_url)}" alt="${item.model}" loading="lazy" />`;
+            const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'push-btn';
+            btn.textContent = isPrimary ? '当前屏幕主图' : '选为屏幕主图';
+            btn.addEventListener('click', () => pushCandidate(item, card, btn));
+            card.appendChild(btn);
+            el.aiGrid.appendChild(card);
+          });
+
+          setStatus(el.resultStatus, '生成完成，电脑端已同步显示结果图。', 'ok');
+        }, 600);
+      } catch(e) {
+        stopGenAnim();
+        setStatus(el.resultStatus, '生成失败：' + e.message, 'err');
       } finally {
         generationInProgress = false;
-        generateBtn.disabled = !diagnosisComplete;
+        el.generateBtn.disabled = !diagnosisComplete;
       }
     });
 
-    saveEspBtn.addEventListener("click", async () => {
-      const espIp = (espIpInput.value || "").trim();
-      if (!espIp) {
-        setEspConfigStatus("请先输入 ESP 屏幕 IP。", "err");
-        return;
-      }
-
-      try {
-        saveEspBtn.disabled = true;
-        setEspConfigStatus("正在保存屏幕 IP...");
-
-        const resp = await fetch("/api/esp_config", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ esp_ip: espIp })
-        });
-
-        const data = await resp.json();
-        if (!resp.ok || !data.ok) {
-          throw new Error(data.msg || "保存失败");
-        }
-
-        espIpInput.value = data.esp_ip || espIp;
-        setEspConfigStatus(data.msg || "保存成功。", "ok");
-      } catch (err) {
-        console.error(err);
-        setEspConfigStatus("保存屏幕 IP 失败：" + (err.message || err), "err");
-      } finally {
-        saveEspBtn.disabled = false;
-      }
-    });
-
-    renderAllChips();
+    // ===== Init =====
     loadEspConfig();
-    loadLatestResultForBottomGallery();
-    setGenerateStatus("已加载目标选项，等待拍照诊断。");
+    renderAllChips();
+    updateNextBtn();
   </script>
 </body>
 </html>
