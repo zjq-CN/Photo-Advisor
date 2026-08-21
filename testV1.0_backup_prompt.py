@@ -42,7 +42,7 @@ SESSION_FOLDER = os.path.join(STATIC_FOLDER, "sessions")
 
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
 MAX_CONTENT_LENGTH = 15 * 1024 * 1024  # 15MB
-API_KEYS_FILE = os.path.join(BASE_DIR, "api_keys.json")
+API_KEYS_FILE = os.path.join(BASE_DIR, "_config", "api_keys.json")
 
 
 def load_api_keys_file() -> Dict[str, str]:

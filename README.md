@@ -10,11 +10,11 @@
 py -3 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
-if (-not (Test-Path api_keys.json)) { Copy-Item api_keys.example.json api_keys.json }
+if (-not (Test-Path _config\api_keys.json)) { New-Item -ItemType Directory -Force -Path _config; Copy-Item api_keys.example.json _config\api_keys.json }
 python main.py
 ```
 
-然后按终端提示打开手机拍照页、电脑显示页或二维码页。上面的复制命令只会在配置文件不存在时创建它，不会覆盖现有密钥。密钥和设备 IP 填在本地 `api_keys.json`；该文件已被 Git 忽略，不会进入版本库。
+然后按终端提示打开手机拍照页、电脑显示页或二维码页。上面的复制命令只会在配置文件不存在时创建它，不会覆盖现有密钥。密钥和设备 IP 填在本地 `_config/api_keys.json`；`_config/` 文件夹已被 Git 忽略，不会进入版本库。
 
 ## 当前图改图模型
 

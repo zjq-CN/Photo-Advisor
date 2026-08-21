@@ -1,5 +1,5 @@
 # Secrets and local configuration
-api_keys.json
+_config/
 .env
 .env.*
 !.env.example
