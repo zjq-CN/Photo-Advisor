@@ -1,89 +1,123 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>扫码进入页面</title>
+  <title>扫码进入</title>
   <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-base: #1E2024;
+      --bg-card: rgba(255,255,255,0.06);
+      --bg-input: rgba(255,255,255,0.04);
+      --text-1: #E8E5E1;
+      --text-2: #9A9792;
+      --text-3: #5A5752;
+      --accent: #7BA3B8;
+      --accent-dim: rgba(123,163,184,0.20);
+      --border: rgba(255,255,255,0.06);
+      --shadow: 0 8px 32px rgba(0,0,0,0.25);
+      --radius: 16px;
+      --radius-sm: 12px;
+      --glass-blur: 20px;
+    }
+    html[data-theme="light"] {
+      --bg-base: #F2F0ED;
+      --bg-card: rgba(255,255,255,0.60);
+      --bg-input: rgba(0,0,0,0.03);
+      --text-1: #3D3A36;
+      --text-2: #8A8580;
+      --text-3: #B5B0AA;
+      --accent: #6B95A8;
+      --accent-dim: rgba(107,149,168,0.15);
+      --border: rgba(0,0,0,0.07);
+      --shadow: 0 8px 32px rgba(0,0,0,0.06);
+    }
     body {
-      margin: 0;
-      background: #0f172a;
-      color: #e5e7eb;
-      font-family: Arial, "Microsoft YaHei", sans-serif;
-    }
-    .wrap {
-      max-width: 1000px;
-      margin: 0 auto;
-      padding: 24px 16px;
-    }
-    .title {
-      font-size: 28px;
-      font-weight: bold;
-      margin-bottom: 16px;
-    }
-    .desc {
-      color: #cbd5e1;
-      line-height: 1.8;
-      margin-bottom: 20px;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 18px;
+      background: var(--bg-base);
+      color: var(--text-1);
+      font-family: -apple-system, "SF Pro Display", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+      transition: background 0.35s ease, color 0.35s ease;
     }
     .card {
-      background: #111827;
-      border: 1px solid #1f2937;
-      border-radius: 16px;
-      padding: 18px;
-    }
-    .card h2 {
-      margin-top: 0;
-      margin-bottom: 12px;
-      font-size: 22px;
-    }
-    .qr {
+      background: var(--bg-card);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px 28px;
+      box-shadow: var(--shadow);
+      text-align: center;
+      max-width: 420px;
       width: 100%;
-      max-width: 320px;
-      display: block;
-      background: white;
-      border-radius: 12px;
-      padding: 8px;
-      margin-bottom: 12px;
+      transition: background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
     }
-    .url {
-      word-break: break-all;
-      color: #93c5fd;
-      line-height: 1.7;
-      font-size: 15px;
+    .icon-ring {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: var(--accent-dim);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 20px;
     }
-    @media (max-width: 800px) {
-      .grid {
-        grid-template-columns: 1fr;
-      }
+    .icon-ring svg { width: 30px; height: 30px; fill: var(--accent); }
+    .title { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; margin-bottom: 8px; }
+    .desc { font-size: 14px; color: var(--text-2); line-height: 1.7; margin-bottom: 24px; }
+    .qr-wrap {
+      display: inline-block;
+      background: #fff;
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      margin-bottom: 20px;
     }
+    .qr-wrap img { width: 240px; height: 240px; display: block; }
+    .url-text {
+      font-size: 14px; color: var(--accent);
+      word-break: break-all; line-height: 1.6;
+    }
+    .theme-btn {
+      margin-top: 20px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 8px 16px;
+      font-size: 13px; color: var(--text-2);
+      cursor: pointer; transition: all 0.35s ease;
+    }
+    .theme-btn:hover { background: rgba(255,255,255,0.10); }
+    .theme-btn .icon-sun { display: none; }
+    html[data-theme="light"] .theme-btn .icon-sun { display: inline; }
+    html[data-theme="light"] .theme-btn .icon-moon { display: none; }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="title">扫码进入页面</div>
-    <div class="desc">
-      手机和电脑连接同一个 Wi-Fi 后，可直接用手机扫描下面的二维码进入对应页面。
+  <div class="card">
+    <div class="icon-ring">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
     </div>
-
-    <div class="grid">
-      <div class="card">
-        <h2>手机拍照页</h2>
-        <img class="qr" src="{{ qr_info.mobile_qr }}" alt="手机拍照页二维码" />
-        <div class="url">{{ qr_info.mobile_url }}</div>
-      </div>
-
-      <div class="card">
-        <h2>电脑显示页</h2>
-        <img class="qr" src="{{ qr_info.display_qr }}" alt="电脑显示页二维码" />
-        <div class="url">{{ qr_info.display_url }}</div>
-      </div>
+    <div class="title">手机扫码开始</div>
+    <div class="desc">手机和电脑连接同一 Wi-Fi 后，<br/>扫描下方二维码进入拍照页面。</div>
+    <div class="qr-wrap">
+      <img src="{{ qr_info.mobile_qr }}" alt="手机拍照页二维码" />
     </div>
+    <div class="url-text">{{ qr_info.mobile_url }}</div>
+    <button class="theme-btn" id="themeBtn">
+      <span class="icon-moon">&#9790; 暗色</span>
+      <span class="icon-sun">&#9728; 亮色</span>
+    </button>
   </div>
+
+  <script>
+    const root = document.documentElement;
+    const btn = document.getElementById('themeBtn');
+    btn.addEventListener('click', () => {
+      const isDark = root.getAttribute('data-theme') === 'dark';
+      root.setAttribute('data-theme', isDark ? 'light' : 'dark');
+      localStorage.setItem('pa-theme', isDark ? 'light' : 'dark');
+    });
+    const saved = localStorage.getItem('pa-theme');
+    if (saved) root.setAttribute('data-theme', saved);
+  </script>
 </body>
 </html>

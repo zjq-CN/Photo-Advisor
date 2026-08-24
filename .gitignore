@@ -4,6 +4,15 @@ _config/
 .env.*
 !.env.example
 
+# Local todo notes (not for GitHub)
+待办-*.md
+
+# Project documentation (local only, not for GitHub)
+项目说明.md
+
+# Model exam (local testing, not for GitHub)
+tests/model_exam/
+
 # Python
 __pycache__/
 *.py[cod]

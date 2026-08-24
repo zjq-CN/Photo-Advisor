@@ -1,234 +1,280 @@
-﻿<!DOCTYPE html>
-<html lang="zh-CN">
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>电脑显示页</title>
   <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-base: #1E2024;
+      --bg-card: rgba(255,255,255,0.06);
+      --bg-input: rgba(255,255,255,0.04);
+      --bg-hover: rgba(255,255,255,0.10);
+      --text-1: #E8E5E1;
+      --text-2: #9A9792;
+      --text-3: #5A5752;
+      --accent: #7BA3B8;
+      --accent-dim: rgba(123,163,184,0.20);
+      --accent-glow: rgba(123,163,184,0.35);
+      --success: #8ABFA0;
+      --error: #C8968E;
+      --border: rgba(255,255,255,0.06);
+      --shadow: 0 8px 32px rgba(0,0,0,0.25);
+      --shadow-float: 0 14px 40px rgba(0,0,0,0.30);
+      --radius: 16px;
+      --radius-sm: 12px;
+      --radius-xs: 10px;
+      --glass-blur: 20px;
+    }
+    html[data-theme="light"] {
+      --bg-base: #F2F0ED;
+      --bg-card: rgba(255,255,255,0.60);
+      --bg-input: rgba(0,0,0,0.03);
+      --bg-hover: rgba(0,0,0,0.05);
+      --text-1: #3D3A36;
+      --text-2: #8A8580;
+      --text-3: #B5B0AA;
+      --accent: #6B95A8;
+      --accent-dim: rgba(107,149,168,0.15);
+      --accent-glow: rgba(107,149,168,0.25);
+      --success: #6DA07C;
+      --error: #B07A72;
+      --border: rgba(0,0,0,0.07);
+      --shadow: 0 8px 32px rgba(0,0,0,0.06);
+      --shadow-float: 0 14px 40px rgba(0,0,0,0.10);
+    }
     body {
-      margin: 0;
-      background: #0f172a;
-      color: #e5e7eb;
-      font-family: Arial, "Microsoft YaHei", sans-serif;
+      background: var(--bg-base);
+      color: var(--text-1);
+      font-family: -apple-system, "SF Pro Display", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+      min-height: 100vh;
+      transition: background 0.35s ease, color 0.35s ease;
     }
     .wrap {
-      max-width: 1200px;
+      max-width: 1100px;
       margin: 0 auto;
-      padding: 16px;
+      padding: 20px 18px 40px;
     }
-    .card {
-      background: #111827;
-      border: 1px solid #1f2937;
-      border-radius: 16px;
-      padding: 16px;
-      margin-bottom: 14px;
+    /* Header */
+    .app-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px;
     }
-    h1 {
-      font-size: 24px;
-      margin: 0 0 12px;
+    .header-title { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+    .header-actions { display: flex; gap: 8px; align-items: center; }
+    .icon-btn {
+      width: 36px; height: 36px; border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--bg-input);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.35s ease;
     }
-    h2 {
-      font-size: 18px;
-      margin: 0 0 12px;
+    .icon-btn:hover { background: var(--bg-hover); transform: translateY(-1px); }
+    .icon-btn svg { width: 18px; height: 18px; fill: var(--text-2); }
+    .icon-btn .icon-moon { display: none; }
+    html[data-theme="light"] .icon-btn .icon-sun { display: none; }
+    html[data-theme="light"] .icon-btn .icon-moon { display: block; }
+    /* Meta bar */
+    .meta-bar {
+      font-size: 13px; color: var(--text-2); line-height: 1.6;
+      margin-bottom: 18px; padding: 10px 14px;
+      background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      transition: background 0.35s ease, border-color 0.35s ease;
     }
-    .meta {
-      color: #94a3b8;
-      font-size: 14px;
-      line-height: 1.7;
+    /* Glass card */
+    .glass-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 18px;
+      box-shadow: var(--shadow);
+      margin-bottom: 16px;
+      transition: background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
     }
-    .single-preview-card {
-      max-width: 680px;
-      margin: 0 auto 14px;
-    }
+    .card-title { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; margin-bottom: 14px; }
+    /* Image preview */
+    .single-preview-card { max-width: 680px; margin-left: auto; margin-right: auto; }
     .img-box img {
-      width: 100%;
-      border-radius: 12px;
-      border: 1px solid #334155;
-      background: #000;
-      display: none;
-    }
-    .original-box img {
-      max-height: 560px;
+      width: 100%; border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: #000; display: none;
       object-fit: contain;
     }
-    .empty {
-      color: #94a3b8;
-      font-size: 15px;
-      line-height: 1.8;
-    }
-    .err {
-      color: #fca5a5;
-      white-space: pre-wrap;
-      line-height: 1.7;
-    }
+    .original-box img { max-height: 520px; }
+    .empty-text { color: var(--text-3); font-size: 14px; line-height: 1.7; }
+    .err-text { color: var(--error); white-space: pre-wrap; line-height: 1.7; font-size: 14px; }
+    /* Compare grid */
     .compare-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 14px;
     }
     .compare-item {
-      background: #0b1220;
-      border: 1px solid #243041;
-      border-radius: 12px;
-      padding: 12px;
+      background: var(--bg-input);
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      transition: border-color 0.35s ease, box-shadow 0.35s ease, background 0.35s ease;
     }
     .compare-item.selected {
-      border-color: #22c55e;
-      box-shadow: 0 0 0 1px rgba(34,197,94,0.35);
+      border-color: var(--success);
+      box-shadow: 0 0 0 1px rgba(138,191,160,0.25);
     }
     .compare-title {
-      color: #93c5fd;
-      font-weight: bold;
-      margin-bottom: 10px;
-      font-size: 15px;
+      color: var(--accent); font-weight: 700;
+      margin-bottom: 10px; font-size: 15px;
     }
     .compare-item img {
-      width: 100%;
-      max-height: 560px;
-      object-fit: contain;
-      border-radius: 8px;
-      border: 1px solid #334155;
-      display: block;
-      background: #000;
+      width: 100%; max-height: 520px;
+      object-fit: contain; border-radius: 8px;
+      border: 1px solid var(--border);
+      display: block; background: #000;
     }
     .candidate-meta {
-      margin-top: 8px;
-      min-height: 1.5em;
-      color: #94a3b8;
-      font-size: 12px;
-      line-height: 1.5;
+      margin-top: 8px; min-height: 1.5em;
+      color: var(--text-3); font-size: 12px; line-height: 1.5;
     }
     .candidate-btn {
-      width: 100%;
-      margin-top: 8px;
-      border: 1px solid #334155;
-      border-radius: 8px;
-      padding: 9px 10px;
-      background: #172033;
-      color: #dbeafe;
-      cursor: pointer;
-      font-size: 13px;
+      width: 100%; margin-top: 8px;
+      border: 1px solid var(--border);
+      border-radius: 8px; padding: 9px 10px;
+      background: var(--bg-hover); color: var(--text-1);
+      cursor: pointer; font-size: 13px;
+      transition: all 0.35s ease;
     }
-    .candidate-btn:disabled {
-      opacity: 0.6;
-      cursor: wait;
+    .candidate-btn:disabled { opacity: 0.5; cursor: wait; }
+    .candidate-btn:hover:not(:disabled) { background: var(--accent-dim); color: var(--accent); }
+    /* Report rows */
+    .report-grid { display: flex; flex-direction: column; gap: 10px; }
+    .report-row {
+      background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: var(--radius-xs); padding: 12px 14px;
+      transition: background 0.35s ease, border-color 0.35s ease;
     }
-    .row {
-      background: #0b1220;
-      border: 1px solid #243041;
-      border-radius: 10px;
-      padding: 10px 12px;
-      margin-bottom: 10px;
-      line-height: 1.65;
-      font-size: 15px;
+    .report-label { font-size: 12px; color: var(--accent); font-weight: 600; display: block; margin-bottom: 4px; }
+    .report-value { font-size: 14px; color: var(--text-1); line-height: 1.6; }
+    .suggestion-box {
+      margin-top: 14px; padding: 14px;
+      background: var(--accent-dim); border-radius: var(--radius-sm);
+      border: 1px solid rgba(123,163,184,0.15);
+      transition: background 0.35s ease;
     }
-    .label {
-      color: #93c5fd;
-      font-weight: bold;
-      display: block;
-      margin-bottom: 4px;
+    .suggestion-label { font-size: 12px; color: var(--accent); font-weight: 600; margin-bottom: 4px; }
+    .suggestion-text { font-size: 14px; color: var(--text-1); line-height: 1.6; }
+    .effective-plan {
+      margin-top: 14px; padding: 12px 14px;
+      background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: var(--radius-xs); font-size: 14px;
+      color: var(--text-2); line-height: 1.6;
+      transition: background 0.35s ease, border-color 0.35s ease;
     }
-    .big-action {
-      margin-top: 12px;
-      background: #1f2937;
-      border: 1px solid #374151;
-      border-radius: 12px;
-      padding: 14px;
-      font-size: 20px;
-      line-height: 1.6;
-      color: #fef3c7;
-      font-weight: bold;
-    }
+    .effective-plan .report-label { margin-bottom: 2px; }
     @media (max-width: 980px) {
-      .compare-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
+      .compare-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 700px) {
-      .compare-grid {
-        grid-template-columns: 1fr;
-      }
-      .single-preview-card {
-        max-width: 100%;
-      }
+      .compare-grid { grid-template-columns: 1fr; }
+      .single-preview-card { max-width: 100%; }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="card">
-      <h1>电脑显示页</h1>
-      <div class="meta" id="metaText">等待拍照上传...</div>
+    <!-- Header -->
+    <div class="app-header">
+      <div class="header-title">电脑显示页</div>
+      <div class="header-actions">
+        <button class="icon-btn" id="themeToggle" title="切换主题">
+          <svg class="icon-sun" viewBox="0 0 24 24"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 000-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24"><path d="M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 01-4.4 2.26 5.403 5.403 0 01-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+        </button>
+      </div>
     </div>
 
-    <div class="card single-preview-card">
-      <h2>最新拍摄图片</h2>
+    <!-- Meta -->
+    <div class="meta-bar" id="metaText">等待拍照上传...</div>
+
+    <!-- Preview image -->
+    <div class="glass-card single-preview-card">
+      <div class="card-title">最新拍摄图片</div>
       <div class="img-box original-box">
         <img id="previewImg" alt="最新拍摄图片" />
       </div>
-      <div id="previewEmpty" class="empty">暂无图片。</div>
+      <div id="previewEmpty" class="empty-text">暂无图片。</div>
     </div>
 
-    <div class="card">
-      <h2>AI 生成图（最多4张）</h2>
-      <div id="compareEmpty" class="empty">暂无对比结果。</div>
+    <!-- AI comparison -->
+    <div class="glass-card">
+      <div class="card-title">AI 生成图（最多4张）</div>
+      <div id="compareEmpty" class="empty-text">暂无对比结果。</div>
       <div id="compareGrid" class="compare-grid" style="display:none;"></div>
     </div>
 
-    <div class="card">
-      <h2>文字摄影建议</h2>
-      <div id="errorBox" class="err" style="display:none;"></div>
-      <div id="emptyBox" class="empty">暂无数据，请先用手机拍照上传。</div>
+    <!-- Text suggestions -->
+    <div class="glass-card">
+      <div class="card-title">文字摄影建议</div>
+      <div id="errorBox" class="err-text" style="display:none;"></div>
+      <div id="emptyBox" class="empty-text">暂无数据，请先用手机拍照上传。</div>
 
       <div id="contentBox" style="display:none;">
-        <div class="row">
-          <span class="label">画面概括</span>
-          <span id="scene_summary">-</span>
+        <div class="report-grid">
+          <div class="report-row">
+            <span class="report-label">画面概括</span>
+            <span class="report-value" id="scene_summary">-</span>
+          </div>
+          <div class="report-row">
+            <span class="report-label">人物位置分析</span>
+            <span class="report-value" id="subject_position_analysis">-</span>
+          </div>
+          <div class="report-row">
+            <span class="report-label">拍摄角度分析</span>
+            <span class="report-value" id="camera_angle_analysis">-</span>
+          </div>
+          <div class="report-row">
+            <span class="report-label">景别匹配分析</span>
+            <span class="report-value" id="shot_size_analysis">-</span>
+          </div>
+          <div class="report-row">
+            <span class="report-label">构图问题诊断</span>
+            <span class="report-value" id="composition_analysis">-</span>
+          </div>
+          <div class="report-row">
+            <span class="report-label">光照源推测</span>
+            <span class="report-value" id="light_source_inference">-</span>
+          </div>
+          <div class="report-row">
+            <span class="report-label">推荐拍摄位置</span>
+            <span class="report-value" id="recommended_shooting_position">-</span>
+          </div>
         </div>
 
-        <div class="row">
-          <span class="label">人物位置分析</span>
-          <span id="subject_position_analysis">-</span>
+        <div class="suggestion-box">
+          <div class="suggestion-label">调整建议</div>
+          <div class="suggestion-text" id="suggested_adjustment">-</div>
         </div>
 
-        <div class="row">
-          <span class="label">拍摄角度分析</span>
-          <span id="camera_angle_analysis">-</span>
-        </div>
-
-        <div class="row">
-          <span class="label">景别匹配分析</span>
-          <span id="shot_size_analysis">-</span>
-        </div>
-
-        <div class="row">
-          <span class="label">构图问题诊断</span>
-          <span id="composition_analysis">-</span>
-        </div>
-
-        <div class="row">
-          <span class="label">光照源推测</span>
-          <span id="light_source_inference">-</span>
-        </div>
-
-        <div class="row">
-          <span class="label">推荐拍摄位置</span>
-          <span id="recommended_shooting_position">-</span>
-        </div>
-
-        <div class="big-action">
-          调整建议：<span id="suggested_adjustment">-</span>
-        </div>
-
-        <div class="row" style="margin-top:12px;">
-          <span class="label">本次实际优化</span>
-          <span id="effective_plan">等待生成</span>
+        <div class="effective-plan">
+          <span class="report-label">本次实际优化</span>
+          <span class="report-value" id="effective_plan">等待生成</span>
         </div>
       </div>
     </div>
   </div>
 
   <script>
+    const root = document.documentElement;
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      const isDark = root.getAttribute('data-theme') === 'dark';
+      root.setAttribute('data-theme', isDark ? 'light' : 'dark');
+      localStorage.setItem('pa-theme', isDark ? 'light' : 'dark');
+    });
+    const savedTheme = localStorage.getItem('pa-theme');
+    if (savedTheme) root.setAttribute('data-theme', savedTheme);
+
     function setText(id, value) {
       document.getElementById(id).textContent = value || "-";
     }
@@ -345,18 +391,16 @@
         const data = await resp.json();
         if (!resp.ok) return;
 
-        const metaText = document.getElementById("metaText");
-        const previewImg = document.getElementById("previewImg");
-        const previewEmpty = document.getElementById("previewEmpty");
-
-        const errorBox = document.getElementById("errorBox");
-        const emptyBox = document.getElementById("emptyBox");
-        const contentBox = document.getElementById("contentBox");
-
-        metaText.textContent =
+        document.getElementById("metaText").textContent =
           `最近更新：${data.time || "--"}    阶段：${data.stage || "--"}    视觉模型：${data.vision_model || "--"}    生图模型：${data.image_model || "--"}`;
 
         renderModelCandidates(data);
+
+        const previewImg = document.getElementById("previewImg");
+        const previewEmpty = document.getElementById("previewEmpty");
+        const errorBox = document.getElementById("errorBox");
+        const emptyBox = document.getElementById("emptyBox");
+        const contentBox = document.getElementById("contentBox");
 
         if (!data.ok) {
           errorBox.style.display = "block";

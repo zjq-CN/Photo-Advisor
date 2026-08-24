@@ -52,6 +52,7 @@
       font-family: -apple-system, "SF Pro Display", "Helvetica Neue", "Microsoft YaHei", sans-serif;
       min-height: 100dvh;
       overflow: hidden;
+      transition: background 0.35s ease, color 0.35s ease;
     }
     /* — Header — */
     .app-header {
@@ -64,6 +65,7 @@
       -webkit-backdrop-filter: blur(var(--glass-blur));
       border-bottom: 1px solid var(--border);
       z-index: 50;
+      transition: background 0.35s ease, border-color 0.35s ease;
     }
     .header-title { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; }
     .header-actions { display: flex; gap: 6px; }
@@ -72,7 +74,7 @@
       border: 1px solid var(--border);
       background: var(--bg-input);
       display: flex; align-items: center; justify-content: center;
-      cursor: pointer; transition: all 0.2s ease;
+      cursor: pointer; transition: all 0.35s ease;
     }
     .icon-btn:hover { background: var(--bg-hover); transform: translateY(-1px); }
     .icon-btn svg { width: 18px; height: 18px; fill: var(--text-2); }
@@ -117,6 +119,7 @@
       -webkit-backdrop-filter: blur(var(--glass-blur));
       border-top: 1px solid var(--border);
       z-index: 50;
+      transition: background 0.35s ease, border-color 0.35s ease;
     }
     /* — Progress dots — */
     .progress-dots { display: flex; gap: 6px; align-items: center; }
@@ -156,6 +159,7 @@
       padding: 20px 18px;
       box-shadow: var(--shadow);
       margin-bottom: 16px;
+      transition: background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
     }
     .card-title { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; margin-bottom: 4px; }
     .card-subtitle { font-size: 13px; color: var(--text-2); line-height: 1.6; }
@@ -200,6 +204,7 @@
     .report-row {
       background: var(--bg-input); border: 1px solid var(--border);
       border-radius: var(--radius-xs); padding: 12px 14px;
+      transition: background 0.35s ease, border-color 0.35s ease;
     }
     .report-label { font-size: 12px; color: var(--accent); font-weight: 600; display: block; margin-bottom: 4px; }
     .report-value { font-size: 14px; color: var(--text-1); line-height: 1.6; }
@@ -207,6 +212,7 @@
       margin-top: 14px; padding: 14px;
       background: var(--accent-dim); border-radius: var(--radius-sm);
       border: 1px solid rgba(123,163,184,0.15);
+      transition: background 0.35s ease;
     }
     .suggestion-label { font-size: 12px; color: var(--accent); font-weight: 600; margin-bottom: 4px; }
     .suggestion-text { font-size: 14px; color: var(--text-1); line-height: 1.6; }
@@ -224,7 +230,7 @@
       flex-shrink: 0; padding: 8px 16px; border-radius: 999px;
       border: 1px solid var(--border); background: var(--bg-input);
       color: var(--text-2); font-size: 13px; cursor: pointer;
-      transition: all 0.2s ease; white-space: nowrap;
+      transition: all 0.35s ease; white-space: nowrap;
     }
     .chip:hover { background: var(--bg-hover); }
     .chip.active {
@@ -239,6 +245,7 @@
       background: var(--bg-input); border-radius: var(--radius-xs);
       border: 1px solid var(--border); font-size: 13px;
       color: var(--text-2); line-height: 1.5;
+      transition: background 0.35s ease, border-color 0.35s ease;
     }
     .generate-btn {
       width: 100%; margin-top: 16px; padding: 16px 24px;
@@ -256,6 +263,7 @@
     .strategy-row {
       background: var(--bg-input); border: 1px solid var(--border);
       border-radius: var(--radius-xs); padding: 10px 14px;
+      transition: background 0.35s ease, border-color 0.35s ease;
     }
     .strategy-label { font-size: 11px; color: var(--accent); font-weight: 600; display: block; margin-bottom: 3px; }
     .strategy-value { font-size: 13px; color: var(--text-1); line-height: 1.5; }
@@ -275,7 +283,7 @@
       width: 100%; margin-top: 8px; padding: 8px;
       border-radius: 8px; border: 1px solid var(--border);
       background: var(--bg-hover); color: var(--text-1);
-      font-size: 12px; cursor: pointer; transition: all 0.2s ease;
+      font-size: 12px; cursor: pointer; transition: all 0.35s ease;
     }
     .push-btn:disabled { opacity: 0.5; cursor: wait; }
     .push-btn:hover:not(:disabled) { background: var(--accent-dim); color: var(--accent); }
@@ -284,7 +292,7 @@
       border-radius: var(--radius-sm); border: 1px solid var(--border);
       background: var(--bg-input); color: var(--text-2);
       font-size: 14px; font-weight: 600; cursor: pointer;
-      transition: all 0.2s ease;
+      transition: all 0.35s ease;
     }
     .restart-btn:hover { background: var(--bg-hover); }
 
@@ -420,7 +428,7 @@
       padding: 24px 20px 32px;
       box-shadow: 0 -8px 32px rgba(0,0,0,0.2);
       transform: translateY(100%);
-      transition: transform 0.35s ease;
+      transition: transform 0.35s ease, background 0.35s ease, border-color 0.35s ease;
       z-index: 61;
     }
     .settings-overlay.open .settings-panel { transform: translateY(0); }
@@ -429,7 +437,7 @@
     .close-btn {
       width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border);
       background: var(--bg-input); display: flex; align-items: center; justify-content: center;
-      cursor: pointer; transition: all 0.2s ease;
+      cursor: pointer; transition: all 0.35s ease;
     }
     .close-btn:hover { background: var(--bg-hover); }
     .close-btn svg { width: 16px; height: 16px; fill: var(--text-2); }
@@ -438,7 +446,7 @@
       flex: 1; padding: 12px 14px; border-radius: var(--radius-xs);
       border: 1px solid var(--border); background: var(--bg-input);
       color: var(--text-1); font-size: 15px; outline: none;
-      transition: border-color 0.2s ease;
+      transition: border-color 0.35s ease, background 0.35s ease, color 0.35s ease;
     }
     .esp-input:focus { border-color: var(--accent); }
     .esp-save-btn {

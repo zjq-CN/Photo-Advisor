@@ -9,7 +9,7 @@ import hashlib
 import base64
 import subprocess
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 import threading
 import webbrowser
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
@@ -181,6 +181,8 @@ QWEN_IMAGE_EDIT_MAX_MODEL = load_env("QWEN_IMAGE_EDIT_MAX_MODEL", "qwen-image-ed
 ZHIPU_API_KEY = load_env("ZHIPU_API_KEY")
 ZHIPU_IMAGE_URL = load_env("ZHIPU_IMAGE_URL", "https://open.bigmodel.cn/api/paas/v4/images/generations")
 ZHIPU_IMAGE_MODEL = load_env("ZHIPU_IMAGE_MODEL", "glm-image")
+ZHIPU_CHAT_URL = load_env("ZHIPU_CHAT_URL", "https://open.bigmodel.cn/api/paas/v4/chat/completions")
+ZHIPU_VISION_MODEL = load_env("ZHIPU_VISION_MODEL", "glm-4.6v-flash")
 
 # 豆包图像配置
 DOUBAO_API_KEY = load_env("DOUBAO_API_KEY")
@@ -203,8 +205,13 @@ JIMENG_REQ_KEY = load_env("JIMENG_REQ_KEY", "jimeng_t2i_v40")
 HUNYUAN_API_KEY = load_env("HUNYUAN_API_KEY")
 HUNYUAN_SECRET_ID = load_env("HUNYUAN_SECRET_ID") # For SDK
 HUNYUAN_SECRET_KEY = load_env("HUNYUAN_SECRET_KEY") # For SDK
-HUNYUAN_CHAT_URL = load_env("HUNYUAN_CHAT_URL", "https://api.hunyuan.cloud.tencent.com/v1/chat/completions")
-HUNYUAN_VISION_MODEL = load_env("HUNYUAN_VISION_MODEL", "hunyuan-vision")
+HUNYUAN_CHAT_URL = load_env("HUNYUAN_CHAT_URL", "https://tokenhub.tencentmaas.com/v1/chat/completions")
+HUNYUAN_VISION_MODEL = load_env("HUNYUAN_VISION_MODEL", "hy-vision-2.0-instruct")
+
+# DeepSeek 视觉理解配置
+DEEPSEEK_API_KEY = load_env("DEEPSEEK_API_KEY")
+DEEPSEEK_CHAT_URL = load_env("DEEPSEEK_CHAT_URL", "https://api.deepseek.com/chat/completions")
+DEEPSEEK_VISION_MODEL = load_env("DEEPSEEK_VISION_MODEL", "deepseek-v4-flash-vision-exp")
 
 # ESP32 屏幕推送配置
 ESP_SCREEN_ENABLED = parse_bool(load_env("ESP_SCREEN_ENABLED", "1"), True)
@@ -215,15 +222,23 @@ ESP_SCREEN_SIZE = load_env("ESP_SCREEN_SIZE", "320x240")
 ESP_SCREEN_JPEG_QUALITY = parse_int(load_env("ESP_SCREEN_JPEG_QUALITY", "85"), 85)
 ESP_SCREEN_TIMEOUT_SEC = parse_float(load_env("ESP_SCREEN_TIMEOUT_SEC", "6"), 6.0)
 
-# 视觉理解模型：主 -> 备
+# 视觉理解模型：主 -> 备（按 2026-08 模型考试结果排序）
+# qwen3.5-flash 经测试选为唯一主模型：6/6 成功、平均 12.7s、分析质量稳定；
+# 其余按稳定性/速度作 fallback，同一供应商（阿里百炼）的 qwen 模型错开，
+# 避免百炼整体限流时连续失败。API Key 配置保留在 _config/api_keys.json，
+# 换模型只需调整本列表，无需改 Key 文件。
 VISION_MODELS = [
-    "hunyuan-vision",
     "qwen3.5-flash",
+    "deepseek-v4-flash-vision-exp",
     "qwen3-vl-plus",
+    "hy-vision-2.0-instruct",
+    "glm-4.6v-flash",
 ]
 
 # 图像编辑模型：推荐顺序（主 -> 备）
-# 这里使用稳定的内部名称，实际请求的模型 ID 由上方配置决定。
+# 经 2026-08 生图模型考试筛选，保留三个互为补充的模型：
+# 通义万相最快、豆包 Seedream 人像真实感强、qwen-image-3.0-pro 生图编辑二合一。
+# qwen-image-edit-max 与即梦 4.0 经对比不再保留（代码 runner 仍保留，便于日后切换）。
 MODEL_WAN_27 = "wan2.7-image"
 MODEL_QWEN_IMAGE_20 = "qwen-image-2.0"
 MODEL_SEEDREAM_50 = "doubao-seedream-5.0"
@@ -231,9 +246,8 @@ MODEL_QWEN_EDIT_MAX = "qwen-image-edit-max"
 
 IMAGE_EDIT_MODELS = [
     MODEL_WAN_27,
-    MODEL_QWEN_IMAGE_20,
     MODEL_SEEDREAM_50,
-    MODEL_QWEN_EDIT_MAX,
+    MODEL_QWEN_IMAGE_20,
 ]
 MODEL_COMPARE_ENABLED_DEFAULT = True
 MODEL_COMPARE_LIST = list(IMAGE_EDIT_MODELS)
@@ -1079,19 +1093,13 @@ def generate_qr_image(text: str, save_path: str) -> None:
 
 def generate_access_qrcodes(host_ip: str, port: int = 5000) -> Dict[str, str]:
     mobile_url = f"http://{host_ip}:{port}/mobile"
-    display_url = f"http://{host_ip}:{port}/display"
 
     mobile_qr_path = os.path.join(STATIC_FOLDER, "qr_mobile.png")
-    display_qr_path = os.path.join(STATIC_FOLDER, "qr_display.png")
-
     generate_qr_image(mobile_url, mobile_qr_path)
-    generate_qr_image(display_url, display_qr_path)
 
     return {
         "mobile_url": mobile_url,
-        "display_url": display_url,
         "mobile_qr": "/static/qr_mobile.png",
-        "display_qr": "/static/qr_display.png",
     }
 
 
@@ -1100,60 +1108,28 @@ def generate_access_qrcodes(host_ip: str, port: int = 5000) -> Dict[str, str]:
 # =========================
 def build_analysis_prompt() -> str:
     return """
-你是一名专业摄影指导助手。请根据输入照片，完成两件事：
-
-第一，分析当前照片存在的问题，并给出明确、可执行的拍摄建议，这部分内容用于直接展示给用户；
-第二，输出一段“ideal_image_prompt”，用于后续图像编辑模型生成一张“调整完成后”的理想拍摄效果图。
-
-请重点完成以下任务：
-1. 判断人物在画面中的位置（偏左、偏右、居中，是否过高、过低，留白是否合理）。
-2. 判断当前拍摄角度（平拍、俯拍、仰拍、正面、侧面、斜侧等），并说明是否合适。
-3. 判断当前景别（头像特写、半身、全身或环境人像），说明人物占比和裁切是否合理。
-4. 单独评估构图问题，重点检查头顶留白、画面边缘、前景遮挡、水平垂直线和背景干扰。
-5. 结合画面中的明暗、阴影、受光面、背景高光、窗户、灯具、太阳方向等线索，判断主要光照源方向是否明确：
-   - 如果能够明确判断，就输出主要光照源方向及依据；
-   - 如果光源位置不明显、明暗关系不明显、无法可靠判断，就明确写“光源方向不明显”或“无法明确判断”，不要强行推测。
-6. 给出摄影师下一步应该如何调整拍摄位置和机位。
-7. 给出人物下一步应该如何调整位置和姿态。
-8. 判断主体人物的明显性别呈现特征，并输出 subject_gender，仅可填写“男性”或“女性”。
-9. 额外输出一段 ideal_image_prompt，用于描述“按照建议调整后，理想拍摄结果应该呈现出的画面”。
-
-请严格只输出 JSON，不要输出解释文字，不要加 markdown 代码块。
-JSON 结构必须完全遵循下面的 key：
+你是专业摄影指导。分析照片后，只输出一个 JSON 对象（不要 markdown 代码块，不要任何解释文字），key 必须如下：
 
 {
-  "scene_summary": "对当前画面的简短概括，1-2句话",
-  "subject_gender": "男性或女性",
-  "subject_position_analysis": "人物在当前画面中的位置分析",
-  "camera_angle_analysis": "当前拍摄角度分析",
-  "shot_size_analysis": "当前景别、人物占比和裁切分析",
-  "composition_analysis": "构图问题诊断，重点判断头顶留白、人物偏移、前景遮挡和画面边线",
-  "light_source_inference": "主要光照源方向及依据；若无法判断则明确写光源方向不明显",
-  "recommended_shooting_position": "摄影师下一步的机位和站位建议",
-  "suggested_adjustment": "人物和相机分别应如何调整",
-  "ideal_image_prompt": "用于后续图片编辑的理想真实画面描述"
+  "scene_summary": "画面简短概括，1-2句",
+  "subject_gender": "仅填\"男性\"或\"女性\"，按照片真实外观",
+  "subject_position_analysis": "人物位置（偏左/右/居中、高低、留白是否合理）",
+  "camera_angle_analysis": "拍摄角度（平拍/俯拍/仰拍、正面/侧面）及是否合适",
+  "shot_size_analysis": "景别（头像/半身/全身/环境人像）、人物占比、裁切是否合理",
+  "composition_analysis": "构图诊断：头顶留白、人物偏移、前景遮挡、水平垂直线、背景干扰",
+  "light_source_inference": "主光源方向及依据；若明暗关系不明显、无法可靠判断，写\"光源方向不明显\"，不要强行推测",
+  "recommended_shooting_position": "摄影师下一步机位与站位建议",
+  "suggested_adjustment": "人物姿态与相机分别如何调整",
+  "ideal_image_prompt": "按建议调整完成后的理想画面描述（见下方要求）"
 }
 
-其中，ideal_image_prompt 必须满足以下要求：
-1. 它描述的不是当前照片，而是“按建议调整完成后”的理想拍摄结果；
-2. 它不是建议，不是分析，不是教学说明，而是一段纯粹的画面内容描述；
-3. 它必须重点描述：
-   - 人物在画面中的理想位置；
-   - 人物的理想拍摄角度；
-   - 最终画面的整体观感；
-4. 只有在 light_source_inference 可以明确判断光源方向时，才在 ideal_image_prompt 中描述光线方向；如果光源方向不明显，则不要在 ideal_image_prompt 中强调具体光源位置；
-5. 不要详细描述环境内容，因为后续图像编辑模型会直接参考原图环境；
-6. 人物性别必须与 subject_gender 一致；
-7. ideal_image_prompt 描述的是“真实照片效果”，不是卡通图，不是插画，不是示意图；
-8. 不要加入箭头、图标、标注、气泡框、教学说明、对话框、海报文字；
-9. 不要写成“应该如何拍”，而要写成“画面最终是什么样子”；
-10. 输出必须是中文，适合直接给图像编辑模型使用。
+ideal_image_prompt 要求：
+1. 描述\"调整后\"的理想画面，不是当前照片，不是建议或教学说明；
+2. 重点描述人物理想位置、理想角度、整体观感，不详细描述环境（编辑模型会参考原图）；
+3. 仅在能明确判断光源方向时描述光线，否则不强调具体光源位置；
+4. 真实照片效果，非卡通/插画，无箭头图标标注文字，人物性别与 subject_gender 一致。
 
-要求：
-- 输出必须是中文；
-- 结果必须适合网页直接展示；
-- 对人物性别和人物身份特征要尽量依据照片中的真实外观，不要随意改变；
-- 如果光照信息不足，不要虚构原图中不存在的光源。
+整体：输出中文；不虚构原图中没有的光源；分析建议要可执行。
 """.strip()
 
 def normalize_ai_result(result: Dict[str, Any]) -> Dict[str, str]:
@@ -1180,8 +1156,12 @@ def normalize_ai_result(result: Dict[str, Any]) -> Dict[str, str]:
 # 视觉理解
 # =========================
 def call_vision_once(model_name: str, image_path: str) -> Dict[str, str]:
-    if model_name.startswith("hunyuan"):
+    if model_name.startswith("hunyuan") or model_name.startswith("hy-"):
         return call_vision_hunyuan_once(model_name, image_path)
+    if model_name.startswith("deepseek"):
+        return call_vision_deepseek_once(model_name, image_path)
+    if model_name.startswith("glm-"):
+        return call_vision_zhipu_once(model_name, image_path)
     image_data_url = image_file_to_data_url(image_path)
     prompt = build_analysis_prompt()
 
@@ -1284,9 +1264,107 @@ def call_vision_hunyuan_once(model_name: str, image_path: str) -> Dict[str, str]
     return normalize_ai_result(result)
 
 
+def call_vision_deepseek_once(model_name: str, image_path: str) -> Dict[str, str]:
+    if not DEEPSEEK_API_KEY:
+        raise RuntimeError("未配置 DEEPSEEK_API_KEY")
+
+    image_data_url = image_file_to_data_url(image_path)
+    prompt = build_analysis_prompt()
+    headers = {
+        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": model_name if model_name.strip() else DEEPSEEK_VISION_MODEL,
+        "stream": False,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": image_data_url}},
+                ],
+            }
+        ],
+        "max_tokens": 2048,
+    }
+    resp = requests.post(DEEPSEEK_CHAT_URL, headers=headers, json=payload, timeout=120)
+    print(f"=== 视觉模型 {model_name} 状态码 ===")
+    print(resp.status_code)
+    print(resp.text[:3000])
+    if resp.status_code != 200:
+        raise requests.HTTPError(response=resp)
+    data = resp.json()
+    message = data.get("choices", [{}])[0].get("message", {})
+    content = message.get("content", "")
+    if isinstance(content, list):
+        text_parts: List[str] = []
+        for item in content:
+            if isinstance(item, dict) and "text" in item:
+                text_parts.append(str(item["text"]))
+            elif isinstance(item, str):
+                text_parts.append(item)
+        content_text = "\n".join(text_parts).strip()
+    else:
+        content_text = str(content).strip()
+    result = extract_json_from_text(content_text)
+    return normalize_ai_result(result)
+
+
+def call_vision_zhipu_once(model_name: str, image_path: str) -> Dict[str, str]:
+    if not ZHIPU_API_KEY:
+        raise RuntimeError("未配置 ZHIPU_API_KEY")
+
+    image_data_url = image_file_to_data_url(image_path)
+    prompt = build_analysis_prompt()
+    headers = {
+        "Authorization": f"Bearer {ZHIPU_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": model_name if model_name.strip() else ZHIPU_VISION_MODEL,
+        "stream": False,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": image_data_url}},
+                ],
+            }
+        ],
+        "max_tokens": 2048,
+    }
+    resp = requests.post(ZHIPU_CHAT_URL, headers=headers, json=payload, timeout=120)
+    print(f"=== 视觉模型 {model_name} 状态码 ===")
+    print(resp.status_code)
+    print(resp.text[:3000])
+    if resp.status_code != 200:
+        raise requests.HTTPError(response=resp)
+    data = resp.json()
+    message = data.get("choices", [{}])[0].get("message", {})
+    content = message.get("content", "")
+    if isinstance(content, list):
+        text_parts: List[str] = []
+        for item in content:
+            if isinstance(item, dict) and "text" in item:
+                text_parts.append(str(item["text"]))
+            elif isinstance(item, str):
+                text_parts.append(item)
+        content_text = "\n".join(text_parts).strip()
+    else:
+        content_text = str(content).strip()
+    result = extract_json_from_text(content_text)
+    return normalize_ai_result(result)
+
+
 def check_vision_model_ready(model_name: str) -> Tuple[bool, str]:
-    if model_name.startswith("hunyuan"):
+    if model_name.startswith("hunyuan") or model_name.startswith("hy-"):
         return bool(HUNYUAN_API_KEY), "未配置 HUNYUAN_API_KEY"
+    if model_name.startswith("deepseek"):
+        return bool(DEEPSEEK_API_KEY), "未配置 DEEPSEEK_API_KEY"
+    if model_name.startswith("glm-"):
+        return bool(ZHIPU_API_KEY), "未配置 ZHIPU_API_KEY"
     return bool(DASHSCOPE_API_KEY), "未配置 DASHSCOPE_API_KEY"
 
 
@@ -1669,12 +1747,13 @@ OUTPUT_SIZE_PRESETS: Dict[str, Dict[str, Any]] = {
     },
     "screen_4_3": {
         "dashscope_size": "2048*1536",
-        "doubao_size": "2048x1536",
+        # Seedream 5.0 要求图片至少 3686400 像素（1920x1920），故用 2560x1920
+        "doubao_size": "2560x1920",
         "expected_ratio": 4.0 / 3.0,
     },
     "portrait_3_4": {
         "dashscope_size": "1536*2048",
-        "doubao_size": "1536x2048",
+        "doubao_size": "1920x2560",
         "expected_ratio": 3.0 / 4.0,
     },
     "square_1_1": {
@@ -1684,7 +1763,7 @@ OUTPUT_SIZE_PRESETS: Dict[str, Dict[str, Any]] = {
     },
     "landscape_16_9": {
         "dashscope_size": "2048*1152",
-        "doubao_size": "2048x1152",
+        "doubao_size": "2560x1440",
         "expected_ratio": 16.0 / 9.0,
     },
 }
@@ -2257,41 +2336,67 @@ def run_model_compare(
     prompt_text: str,
     generation_settings: Optional[Dict[str, Any]] = None,
     user_intent: Optional[Dict[str, str]] = None,
+    on_candidate: Optional[Callable[[str, Dict[str, Any]], None]] = None,
 ) -> Dict[str, Any]:
-    candidates: List[Dict[str, Any]] = []
-    chosen: Optional[Dict[str, Any]] = None
-    errors: List[str] = []
+    """并发调用多个生图模型，谁先成功谁作为主图（不用等全部跑完再选优）。
 
+    返回结构保持兼容：diagram_url/image_model 为主图结果，
+    model_candidates 为全部候选（按 MODEL_COMPARE_LIST 顺序），供前端对比展示。
+
+    on_candidate: 每完成一个模型（成功或失败）就调用一次 (model_name, item)，
+    用于增量通知（例如把已完成的候选实时写回 latest.json，前端逐张显示）。
+    """
     active_models = get_ready_models(MODEL_COMPARE_LIST)
-    for model_name in active_models:
+    if not active_models:
+        return {
+            "diagram_url": "",
+            "raw_diagram_url": "",
+            "image_model": "",
+            "diagram_error": "未配置任何可用图像模型。",
+            "beauty_applied": False,
+            "model_candidates": [],
+        }
+
+    results: Dict[str, Dict[str, Any]] = {}
+    first_ok_model: List[str] = []
+    lock = threading.Lock()
+    first_ok_lock = threading.Lock()
+
+    def _valid_url(url: str) -> bool:
+        s = str(url).strip()
+        return bool(s) and (
+            s.startswith("http://")
+            or s.startswith("https://")
+            or s.startswith("/uploads/")
+        )
+
+    def _worker(model_name: str) -> None:
         runner = get_image_model_runner(model_name)
         if runner is None:
-            continue
+            return
         try:
             raw_url = runner(image_path, prompt_text, generation_settings)
-            if not str(raw_url).strip() or not (
-                str(raw_url).startswith("http://")
-                or str(raw_url).startswith("https://")
-                or str(raw_url).startswith("/uploads/")
-            ):
+            if not _valid_url(raw_url):
                 raise RuntimeError("模型返回空图片地址。")
-            raw_local_url, beauty_url, beauty_applied = raw_url, raw_url, False
+            # 第一个成功者即标记为主图模型，不阻塞等待质量打分
+            with first_ok_lock:
+                if not first_ok_model:
+                    first_ok_model.append(model_name)
             quality_score, quality_reason = evaluate_image_quality(
                 model_name,
-                beauty_url,
+                raw_url,
                 generation_settings=generation_settings,
                 user_intent=user_intent,
             )
             item = {
                 "model": model_name,
-                "raw_diagram_url": raw_local_url,
-                "diagram_url": beauty_url,
-                "beauty_applied": beauty_applied,
+                "raw_diagram_url": raw_url,
+                "diagram_url": raw_url,
+                "beauty_applied": False,
                 "error": "",
                 "quality_score": quality_score,
                 "quality_reason": quality_reason,
             }
-            candidates.append(item)
         except Exception as e:
             err = str(e)
             if not err and isinstance(e, requests.HTTPError):
@@ -2299,32 +2404,41 @@ def run_model_compare(
                     err = safe_resp_text(e.response)
                 except Exception:
                     err = ""
-            pretty_err = err
             if "InternalError" in err or "submit algo service error" in err:
-                pretty_err = "服务繁忙（InternalError），已自动回退主模型"
-            candidates.append({
+                err = "服务繁忙（InternalError），已自动回退"
+            item = {
                 "model": model_name,
                 "raw_diagram_url": "",
                 "diagram_url": "",
                 "beauty_applied": False,
-                "error": pretty_err,
+                "error": err,
                 "quality_score": -999.0,
                 "quality_reason": "",
-            })
-            errors.append(f"{model_name} 失败：{pretty_err}")
+            }
+        with lock:
+            results[model_name] = item
+        if on_candidate is not None:
+            try:
+                on_candidate(model_name, item)
+            except Exception:
+                pass
 
-    successful_items = [x for x in candidates if not x.get("error")]
-    valid_items = [
-        x for x in successful_items
-        if "条纹伪影" not in str(x.get("quality_reason", ""))
-        and float(x.get("quality_score", -999.0)) > -3.0
+    threads = [
+        threading.Thread(target=_worker, args=(m,), daemon=True)
+        for m in active_models
     ]
-    if valid_items:
-        # max 在同分时保留列表中第一项，即优先遵循推荐顺序。
-        chosen = max(valid_items, key=lambda z: float(z.get("quality_score", -999.0)))
-    elif successful_items:
-        # 质量检测无法读取远程图时仍保留成功结果，避免误判为生成失败。
-        chosen = max(successful_items, key=lambda z: float(z.get("quality_score", -999.0)))
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    candidates = [results[m] for m in active_models if m in results]
+    chosen_model = first_ok_model[0] if first_ok_model else ""
+    chosen = results.get(chosen_model) if chosen_model else None
+
+    # 若首个成功模型因质量检测被标记失败（极少见），回退到任一成功候选
+    if chosen is None or chosen.get("error"):
+        chosen = next((c for c in candidates if not c.get("error")), None)
 
     if chosen:
         return {
@@ -2336,11 +2450,12 @@ def run_model_compare(
             "model_candidates": candidates,
         }
 
+    errors = [c.get("error", "") for c in candidates if c.get("error")]
     return {
         "diagram_url": "",
         "raw_diagram_url": "",
         "image_model": "",
-        "diagram_error": "；".join(errors),
+        "diagram_error": "；".join(errors) or "所有生图模型调用失败。",
         "beauty_applied": False,
         "model_candidates": candidates,
     }
@@ -2601,11 +2716,57 @@ def api_generate():
         print("[开始图像编辑生成理想拍摄结果图]")
         model_candidates: List[Dict[str, Any]] = []
         if debug_compare:
+            # 生成中：先写 "generating" 快照，让 display 页立即展示诊断信息
+            generating_payload = {
+                "ok": True,
+                "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "session_id": session_id,
+                "stage": "generating",
+                "filename": session_data.get("filename", ""),
+                "preview_url": session_data.get("preview_url", ""),
+                "vision_model": session_data.get("vision_model", ""),
+                "image_model": "",
+                "diagnosis_report": diagnosis_report,
+                "user_intent": user_intent,
+                "generation_settings": generation_settings,
+                "strategy_plan": strategy_plan,
+                "ai_result": final_guidance,
+                "edit_prompt": edit_prompt,
+                "raw_diagram_url": "",
+                "diagram_url": "",
+                "diagram_error": "",
+                "beauty_applied": False,
+                "beauty_enabled": False,
+                "model_candidates": [],
+                "esp_push_ok": False,
+                "esp_push_msg": "",
+                "esp_pushed_image": "",
+                "esp_push_count": 0,
+                "esp_push_total": 0,
+            }
+            save_latest_result(generating_payload)
+
+            # 每完成一个模型，就把已完成候选增量写回，前端逐张显示，不用等全部完成
+            partial_results: Dict[str, Dict[str, Any]] = {}
+
+            def on_candidate(model_name: str, item: Dict[str, Any]) -> None:
+                partial_results[model_name] = item
+                ordered = [partial_results[m] for m in MODEL_COMPARE_LIST if m in partial_results]
+                snapshot = dict(generating_payload)
+                snapshot["time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                snapshot["model_candidates"] = ordered
+                first_ok = next((c for c in ordered if not c.get("error")), None)
+                if first_ok:
+                    snapshot["diagram_url"] = first_ok.get("diagram_url", "")
+                    snapshot["image_model"] = first_ok.get("model", "")
+                save_latest_result(snapshot)
+
             compare_data = run_model_compare(
                 image_path,
                 edit_prompt,
                 generation_settings=generation_settings,
                 user_intent=user_intent,
+                on_candidate=on_candidate,
             )
             diagram_url = compare_data.get("diagram_url", "")
             used_image_model = compare_data.get("image_model", "")
@@ -2883,21 +3044,21 @@ def uploaded_file(filename):
 if __name__ == "__main__":
     host_ip = get_local_ip()
     qr_info = generate_access_qrcodes(host_ip, port=5000)
-    qrcode_url = f"http://{host_ip}:5000/qrcode"
+    qrcode_url = f"http://127.0.0.1:5000/qrcode"
+    display_url = f"http://127.0.0.1:5000/display"
 
     print("====================================")
     print("服务已准备启动")
     print(f"手机拍照页：{qr_info['mobile_url']}")
-    print(f"电脑显示页：{qr_info['display_url']}")
+    print(f"电脑显示页：{display_url}")
     print(f"二维码页：{qrcode_url}")
     print(f"视觉理解模型顺序：{VISION_MODELS}")
     print(f"图像编辑模型顺序：{get_ready_models(IMAGE_EDIT_MODELS)}")
-    print("二维码图片已生成：")
-    print(f"  {os.path.join(STATIC_FOLDER, 'qr_mobile.png')}")
-    print(f"  {os.path.join(STATIC_FOLDER, 'qr_display.png')}")
+    print(f"二维码图片已生成：{os.path.join(STATIC_FOLDER, 'qr_mobile.png')}")
     print("====================================")
 
-    # 启动后自动打开二维码页
+    # 启动后自动打开二维码页和电脑显示页
     open_browser_later(qrcode_url, delay=1.2)
+    open_browser_later(display_url, delay=1.8)
 
     app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)

@@ -66,14 +66,13 @@ class OptimizationSchemaTests(unittest.TestCase):
             self.assertEqual(len(values), len(set(values)))
             self.assertIn(app_module.DEFAULT_USER_INTENT[group["key"]], values)
 
-    def test_model_order_is_the_recommended_four(self):
+    def test_model_order_is_the_recommended_three(self):
         self.assertEqual(
             app_module.IMAGE_EDIT_MODELS,
             [
                 "wan2.7-image",
-                "qwen-image-2.0",
                 "doubao-seedream-5.0",
-                "qwen-image-edit-max",
+                "qwen-image-2.0",
             ],
         )
 
@@ -125,10 +124,10 @@ class OptimizationSchemaTests(unittest.TestCase):
     def test_generation_sizes_follow_ratio(self):
         expected = {
             "source": (None, "2K", None),
-            "screen_4_3": ("2048*1536", "2048x1536", 4 / 3),
-            "portrait_3_4": ("1536*2048", "1536x2048", 3 / 4),
+            "screen_4_3": ("2048*1536", "2560x1920", 4 / 3),
+            "portrait_3_4": ("1536*2048", "1920x2560", 3 / 4),
             "square_1_1": ("2048*2048", "2048x2048", 1.0),
-            "landscape_16_9": ("2048*1152", "2048x1152", 16 / 9),
+            "landscape_16_9": ("2048*1152", "2560x1440", 16 / 9),
         }
         for ratio, values in expected.items():
             with self.subTest(ratio=ratio):
@@ -174,7 +173,7 @@ class RenderingAndPayloadTests(unittest.TestCase):
             response = client.get("/mobile")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        match = re.search(r"const intentSchema = (.*?);", html)
+        match = re.search(r'<script type="application/json" id="intentSchemaData">(.*?)</script>', html, re.DOTALL)
         self.assertIsNotNone(match)
         rendered_schema = json.loads(match.group(1))
         rendered_text = json.dumps(rendered_schema, ensure_ascii=False)
