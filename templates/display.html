@@ -295,6 +295,15 @@
       }
     }
 
+    let espScreenEnabled = true;
+    async function loadEspConfig() {
+      try {
+        const resp = await fetch("/api/esp_config");
+        const data = await resp.json();
+        if (resp.ok && data.ok) espScreenEnabled = data.esp_enabled !== false;
+      } catch (e) { /* 读取失败时按默认启用处理 */ }
+    }
+
     async function chooseAndPushCandidate(item, card, button) {
       const imageRef = (item && item.diagram_url || "").trim();
       if (!imageRef) return;
@@ -374,8 +383,13 @@
         const button = document.createElement("button");
         button.type = "button";
         button.className = "candidate-btn";
-        button.textContent = isPrimary ? "当前屏幕主图（可重推）" : "推送为屏幕主图";
-        button.addEventListener("click", () => chooseAndPushCandidate(item, card, button));
+        if (!espScreenEnabled) {
+          button.disabled = true;
+          button.textContent = "小屏幕已关闭（设置中开启）";
+        } else {
+          button.textContent = isPrimary ? "当前屏幕主图（可重推）" : "推送为屏幕主图";
+          button.addEventListener("click", () => chooseAndPushCandidate(item, card, button));
+        }
         card.appendChild(button);
 
         compareGrid.appendChild(card);
@@ -446,6 +460,7 @@
       }
     }
 
+    loadEspConfig();
     loadLatest();
     setInterval(loadLatest, 2500);
   </script>

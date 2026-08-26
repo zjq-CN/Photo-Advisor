@@ -43,3 +43,5 @@ static/qr_display.png
 *.tmp
 *.bak
 ~*
+
+tests/structure_test_images/

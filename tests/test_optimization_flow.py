@@ -1,8 +1,10 @@
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
 import re
+import sys
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
@@ -12,6 +14,9 @@ import numpy as np
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
+# geometry.py 位于项目根目录，主程序顶层会 `from geometry import extract_geometry`；
+# importlib 加载不会自动把项目根加入 sys.path，这里手动补上。
+sys.path.insert(0, str(PROJECT_DIR))
 PRIMARY_PATH = PROJECT_DIR / "testV1.0_backup_prompt.py"
 
 # 避免测试导入阶段为未配置项反复查询 Windows 用户环境；这些值只存在于
@@ -351,6 +356,96 @@ class RenderingAndPayloadTests(unittest.TestCase):
             called_prompt = compare.call_args.args[1]
             for label in ("光线与肤色", "头像特写", "温暖柔和", "3:4 竖版人像", "明显"):
                 self.assertIn(label, called_prompt)
+
+
+class GeometryInjectionTests(unittest.TestCase):
+    """几何结构层集成：提示词追加与 /api/diagnose 载荷。"""
+
+    def test_analysis_prompt_without_block_matches_original(self):
+        prompt = app_module.build_analysis_prompt()
+        for key in ("你是专业摄影指导", "只输出一个 JSON 对象", "scene_summary", "ideal_image_prompt"):
+            self.assertIn(key, prompt)
+        self.assertNotIn("【检测器参考数据】", prompt)
+
+    def test_analysis_prompt_appends_geometry_block_at_end(self):
+        block = "【检测器参考数据】\n- 画面中检测到至少 2 张人脸。"
+        prompt = app_module.build_analysis_prompt(block)
+        self.assertTrue(prompt.endswith(block))
+        self.assertIn("【检测器参考数据】", prompt)
+
+    def test_dashscope_branch_payload_contains_geometry_block(self):
+        fake_response = Mock(status_code=200, text='{"ok":true}')
+        fake_response.json.return_value = {
+            "choices": [{"message": {"content": '{"scene_summary": "测试"}'}}]
+        }
+        block = "【检测器参考数据】\n- 画面中检测到至少 1 张人脸。"
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as handle:
+            handle.write(b"fake-image-bytes")
+            image_path = handle.name
+        try:
+            with patch.object(app_module.requests, "post", return_value=fake_response) as post:
+                app_module.call_vision_once("dashscope-test", image_path, block)
+            payload = post.call_args.kwargs["json"]
+            prompt_text = payload["messages"][0]["content"][0]["text"]
+            self.assertTrue(prompt_text.endswith(block))
+        finally:
+            Path(image_path).unlink(missing_ok=True)
+
+    def test_api_diagnose_injects_detector_block_and_persists_detector_data(self):
+        fake_geo = {
+            "detector": "mediapipe_face_mesh",
+            "count_note": "画面中检测到至少 1 张人脸",
+            "people": [
+                {
+                    "index": 1,
+                    "x_norm": 0.5,
+                    "y_norm": 0.4,
+                    "face_width_ratio": 0.12,
+                    "yaw_deg": 0.0,
+                    "pitch_deg": 0.0,
+                    "roll_deg": 0.0,
+                    "position_x": "居中",
+                    "position_y": "中上",
+                    "face_size": "中等",
+                    "head_pose": "正面",
+                    "roll_desc": "端正",
+                    "description": "人脸1：位于画面居中、中上，面朝镜头，面部占比中等，头部端正。",
+                }
+            ],
+            "prompt_block": "【检测器参考数据】\n以下为计算机视觉检测器非人工标注的测量结果，仅供参考，最终以图像为准；人数为\"至少\"口径（人脸被遮挡可能漏检）。\n- 画面中检测到至少 1 张人脸。\n- 人脸1：位于画面居中、中上，正面朝向镜头，面部占比中等，头部端正。",
+        }
+        fake_ai_result = {"scene_summary": "一名人物站在室内窗边。"}
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            session_dir = root / "sessions"
+            session_dir.mkdir()
+            upload_dir = root / "uploads"
+            upload_dir.mkdir()
+            latest_path = root / "latest.json"
+            image_path = root / "photo.jpg"
+            cv2.imwrite(str(image_path), np.zeros((60, 60, 3), dtype=np.uint8))
+            image_bytes = image_path.read_bytes()
+            with patch.dict(app_module.app.config, {"UPLOAD_FOLDER": str(upload_dir)}), patch.object(
+                app_module, "SESSION_FOLDER", str(session_dir)
+            ), patch.object(app_module, "LATEST_RESULT_JSON", str(latest_path)), patch.object(
+                app_module, "extract_geometry", return_value=fake_geo
+            ) as geo_call, patch.object(
+                app_module, "call_vision_auto", return_value=(fake_ai_result, "vision-test")
+            ) as vision_call:
+                with app_module.app.test_client() as client:
+                    response = client.post(
+                        "/api/diagnose",
+                        data={"photo": (io.BytesIO(image_bytes), "photo.jpg")},
+                        content_type="multipart/form-data",
+                    )
+            self.assertEqual(response.status_code, 200)
+            data = response.get_json()
+            self.assertTrue(data["ok"])
+            geo_call.assert_called_once()
+            self.assertEqual(vision_call.call_args.args[1], fake_geo["prompt_block"])
+            latest = json.loads(latest_path.read_text(encoding="utf-8"))
+            self.assertEqual(latest["detector_data"], fake_geo)
+            self.assertEqual(latest["detector_data"]["count_note"], "画面中检测到至少 1 张人脸")
 
 
 if __name__ == "__main__":

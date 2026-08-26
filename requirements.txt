@@ -4,3 +4,5 @@ opencv-python>=4.9,<5
 qrcode[pil]>=7.4,<9
 requests>=2.31,<3
 tencentcloud-sdk-python>=3.0.1000
+# mediapipe 锁定 0.10.x：1.x 已移除 solutions API（FaceMesh），会导致结构层静默失效
+mediapipe==0.10.21

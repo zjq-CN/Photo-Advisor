@@ -456,6 +456,23 @@
       transition: all 0.2s ease; white-space: nowrap;
     }
     .esp-save-btn:disabled { opacity: 0.5; }
+    .esp-switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+    .esp-switch-label { font-size: 15px; font-weight: 600; color: var(--text-1); }
+    .esp-switch-hint { font-size: 12px; color: var(--text-3); margin-top: 3px; line-height: 1.4; }
+    .switch { position: relative; display: inline-block; width: 46px; height: 26px; flex-shrink: 0; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .switch .slider {
+      position: absolute; inset: 0; cursor: pointer;
+      background: var(--bg-hover); border: 1px solid var(--border);
+      border-radius: 26px; transition: all 0.3s ease;
+    }
+    .switch .slider::before {
+      content: ""; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px;
+      background: var(--text-2); border-radius: 50%; transition: all 0.3s ease;
+    }
+    .switch input:checked + .slider { background: var(--accent); border-color: var(--accent); }
+    .switch input:checked + .slider::before { transform: translateX(20px); background: #fff; }
+    .switch input:disabled + .slider { opacity: 0.5; cursor: default; }
 
     /* — Animations — */
     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -508,7 +525,7 @@
           <svg viewBox="0 0 24 24"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
           拍照并分析
         </button>
-        <div class="step1-hint">拍照后会自动进入诊断分析，结果将同步到电脑展示页和 ESP 屏幕。</div>
+        <div class="step1-hint" id="step1Hint">拍照后会自动进入诊断分析，结果将同步到电脑展示页和 ESP 屏幕。</div>
       </div>
     </div>
 
@@ -609,7 +626,7 @@
         </div>
         <div class="glass-card">
           <div class="card-title">AI 生成图</div>
-          <div class="card-subtitle">点击图片可设为屏幕主图</div>
+          <div class="card-subtitle" id="aiCardSubtitle">点击图片可设为屏幕主图</div>
         </div>
         <div class="ai-grid" id="aiGrid"></div>
         <button class="restart-btn" id="restartBtn" type="button">重新拍摄</button>
@@ -636,6 +653,16 @@
       <div class="settings-header">
         <span class="settings-title">屏幕连接设置</span>
         <button class="close-btn" id="closeSettings"><svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+      </div>
+      <div class="esp-switch-row">
+        <div>
+          <div class="esp-switch-label">启用 ESP 小屏幕</div>
+          <div class="esp-switch-hint">关闭后测试时可跳过屏幕推送</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="espEnabledToggle" checked />
+          <span class="slider"></span>
+        </label>
       </div>
       <div class="esp-row">
         <input id="espIpInput" class="esp-input" type="text" inputmode="decimal" placeholder="ESP 屏幕 IP，如 192.168.1.50" />
@@ -694,6 +721,9 @@
       espIpInput: document.getElementById('espIpInput'),
       saveEspBtn: document.getElementById('saveEspBtn'),
       espConfigStatus: document.getElementById('espConfigStatus'),
+      espEnabledToggle: document.getElementById('espEnabledToggle'),
+      step1Hint: document.getElementById('step1Hint'),
+      aiCardSubtitle: document.getElementById('aiCardSubtitle'),
       themeToggle: document.getElementById('themeToggle'),
     };
 
@@ -755,6 +785,7 @@
         el.btnNext.disabled = !diagnosisComplete; el.btnNext.textContent = '下一步';
       } else if (currentStep === 3) {
         el.btnNext.style.display = 'none'; // 使用"生成"按钮替代
+        el.generateBtn.disabled = !diagnosisComplete;
       } else {
         el.btnNext.style.display = ''; el.btnNext.disabled = true; el.btnNext.textContent = '下一步';
       }
@@ -890,15 +921,39 @@
     }
 
     // ===== ESP config =====
+    let espScreenEnabled = true;
+    function updateEspUi(cfg) {
+      espScreenEnabled = !cfg || cfg.esp_enabled !== false;
+      el.step1Hint.textContent = espScreenEnabled
+        ? '拍照后会自动进入诊断分析，结果将同步到电脑展示页和 ESP 屏幕。'
+        : '拍照后会自动进入诊断分析，结果将同步到电脑展示页（小屏幕已关闭）。';
+      el.aiCardSubtitle.textContent = espScreenEnabled ? '点击图片可设为屏幕主图' : '小屏幕已关闭，结果仅展示在电脑端';
+    }
     async function loadEspConfig() {
       try {
         const r = await fetch('/api/esp_config');
         const d = await r.json();
         if (!r.ok || !d.ok) throw new Error(d.msg || '读取失败');
         el.espIpInput.value = d.esp_ip || '';
+        el.espEnabledToggle.checked = d.esp_enabled !== false;
+        updateEspUi(d);
         setStatus(el.espConfigStatus, d.esp_ip ? `当前屏幕地址：${d.esp_ip}:${d.esp_port || 80}` : '还未设置屏幕 IP。', d.esp_ip ? 'ok' : '');
       } catch(e) { setStatus(el.espConfigStatus, '读取失败：' + e.message, 'err'); }
     }
+    el.espEnabledToggle.addEventListener('change', async () => {
+      const enabled = el.espEnabledToggle.checked;
+      try {
+        el.espEnabledToggle.disabled = true;
+        const r = await fetch('/api/esp_config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ esp_enabled: enabled }) });
+        const d = await r.json();
+        if (!r.ok || !d.ok) throw new Error(d.msg || '保存失败');
+        updateEspUi(d);
+        setStatus(el.espConfigStatus, enabled ? '小屏幕已启用。' : '小屏幕已关闭，测试时可跳过屏幕推送。', 'ok');
+      } catch(e) {
+        el.espEnabledToggle.checked = !enabled;
+        setStatus(el.espConfigStatus, '保存失败：' + e.message, 'err');
+      } finally { el.espEnabledToggle.disabled = false; }
+    });
     el.saveEspBtn.addEventListener('click', async () => {
       const ip = (el.espIpInput.value || '').trim();
       if (!ip) { setStatus(el.espConfigStatus, '请先输入 IP。', 'err'); return; }
@@ -1033,8 +1088,12 @@
             const card = document.createElement('div'); card.className = 'ai-card' + (isPrimary ? ' selected' : '');
             card.innerHTML = `<div class="ai-card-title">${item.model || 'AI结果'}${isPrimary ? ' · 首选' : ''}</div><img src="${toDisplayUrl(item.diagram_url)}" alt="${item.model}" loading="lazy" />`;
             const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'push-btn';
-            btn.textContent = isPrimary ? '当前屏幕主图' : '选为屏幕主图';
-            btn.addEventListener('click', () => pushCandidate(item, card, btn));
+            if (!espScreenEnabled) {
+              btn.disabled = true; btn.textContent = '小屏幕已关闭';
+            } else {
+              btn.textContent = isPrimary ? '当前屏幕主图' : '选为屏幕主图';
+              btn.addEventListener('click', () => pushCandidate(item, card, btn));
+            }
             card.appendChild(btn);
             el.aiGrid.appendChild(card);
           });

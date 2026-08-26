@@ -19,6 +19,8 @@ import cv2
 import numpy as np
 from flask import Flask, render_template, request, jsonify, send_from_directory
 
+from geometry import extract_geometry  # 几何结构层：mediapipe 缺失时自动降级为 None
+
 try:
     from tencentcloud.common import credential
     from tencentcloud.common.profile.client_profile import ClientProfile
@@ -1106,8 +1108,8 @@ def generate_access_qrcodes(host_ip: str, port: int = 5000) -> Dict[str, str]:
 # =========================
 # 第一次分析提示词
 # =========================
-def build_analysis_prompt() -> str:
-    return """
+def build_analysis_prompt(geometry_block: str = "") -> str:
+    prompt = """
 你是专业摄影指导。分析照片后，只输出一个 JSON 对象（不要 markdown 代码块，不要任何解释文字），key 必须如下：
 
 {
@@ -1131,6 +1133,9 @@ ideal_image_prompt 要求：
 
 整体：输出中文；不虚构原图中没有的光源；分析建议要可执行。
 """.strip()
+    if geometry_block:
+        return prompt + "\n\n" + geometry_block
+    return prompt
 
 def normalize_ai_result(result: Dict[str, Any]) -> Dict[str, str]:
     keys = [
@@ -1155,15 +1160,15 @@ def normalize_ai_result(result: Dict[str, Any]) -> Dict[str, str]:
 # =========================
 # 视觉理解
 # =========================
-def call_vision_once(model_name: str, image_path: str) -> Dict[str, str]:
+def call_vision_once(model_name: str, image_path: str, geometry_block: str = "") -> Dict[str, str]:
     if model_name.startswith("hunyuan") or model_name.startswith("hy-"):
-        return call_vision_hunyuan_once(model_name, image_path)
+        return call_vision_hunyuan_once(model_name, image_path, geometry_block)
     if model_name.startswith("deepseek"):
-        return call_vision_deepseek_once(model_name, image_path)
+        return call_vision_deepseek_once(model_name, image_path, geometry_block)
     if model_name.startswith("glm-"):
-        return call_vision_zhipu_once(model_name, image_path)
+        return call_vision_zhipu_once(model_name, image_path, geometry_block)
     image_data_url = image_file_to_data_url(image_path)
-    prompt = build_analysis_prompt()
+    prompt = build_analysis_prompt(geometry_block)
 
     headers = {
         "Authorization": f"Bearer {DASHSCOPE_API_KEY}",
@@ -1215,7 +1220,7 @@ def call_vision_once(model_name: str, image_path: str) -> Dict[str, str]:
     return normalize_ai_result(result)
 
 
-def call_vision_hunyuan_once(model_name: str, image_path: str) -> Dict[str, str]:
+def call_vision_hunyuan_once(model_name: str, image_path: str, geometry_block: str = "") -> Dict[str, str]:
     # 检查 Key 格式
     if HUNYUAN_API_KEY and HUNYUAN_API_KEY.startswith("AKID"):
         print("!!! 警告: HUNYUAN_API_KEY 看起来像是腾讯云 SecretId (以 AKID 开头)。")
@@ -1223,7 +1228,7 @@ def call_vision_hunyuan_once(model_name: str, image_path: str) -> Dict[str, str]
         print("!!! 请前往 https://console.cloud.tencent.com/hunyuan/start 获取 API Key。")
 
     image_data_url = image_file_to_data_url(image_path)
-    prompt = build_analysis_prompt()
+    prompt = build_analysis_prompt(geometry_block)
     headers = {
         "Authorization": f"Bearer {HUNYUAN_API_KEY}",
         "Content-Type": "application/json",
@@ -1264,12 +1269,12 @@ def call_vision_hunyuan_once(model_name: str, image_path: str) -> Dict[str, str]
     return normalize_ai_result(result)
 
 
-def call_vision_deepseek_once(model_name: str, image_path: str) -> Dict[str, str]:
+def call_vision_deepseek_once(model_name: str, image_path: str, geometry_block: str = "") -> Dict[str, str]:
     if not DEEPSEEK_API_KEY:
         raise RuntimeError("未配置 DEEPSEEK_API_KEY")
 
     image_data_url = image_file_to_data_url(image_path)
-    prompt = build_analysis_prompt()
+    prompt = build_analysis_prompt(geometry_block)
     headers = {
         "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
         "Content-Type": "application/json",
@@ -1311,12 +1316,12 @@ def call_vision_deepseek_once(model_name: str, image_path: str) -> Dict[str, str
     return normalize_ai_result(result)
 
 
-def call_vision_zhipu_once(model_name: str, image_path: str) -> Dict[str, str]:
+def call_vision_zhipu_once(model_name: str, image_path: str, geometry_block: str = "") -> Dict[str, str]:
     if not ZHIPU_API_KEY:
         raise RuntimeError("未配置 ZHIPU_API_KEY")
 
     image_data_url = image_file_to_data_url(image_path)
-    prompt = build_analysis_prompt()
+    prompt = build_analysis_prompt(geometry_block)
     headers = {
         "Authorization": f"Bearer {ZHIPU_API_KEY}",
         "Content-Type": "application/json",
@@ -1368,7 +1373,7 @@ def check_vision_model_ready(model_name: str) -> Tuple[bool, str]:
     return bool(DASHSCOPE_API_KEY), "未配置 DASHSCOPE_API_KEY"
 
 
-def call_vision_auto(image_path: str) -> Tuple[Dict[str, str], str]:
+def call_vision_auto(image_path: str, geometry_block: str = "") -> Tuple[Dict[str, str], str]:
     last_error: Optional[Exception] = None
     ready_models: List[str] = []
     for model_name in VISION_MODELS:
@@ -1377,7 +1382,7 @@ def call_vision_auto(image_path: str) -> Tuple[Dict[str, str], str]:
             continue
         ready_models.append(model_name)
         try:
-            result = call_vision_once(model_name, image_path)
+            result = call_vision_once(model_name, image_path, geometry_block)
             return result, model_name
         except requests.HTTPError as e:
             last_error = e
@@ -2530,17 +2535,30 @@ def api_esp_config():
             })
 
         payload = request.get_json(silent=True) or {}
+        updates: Dict[str, str] = {}
+        if "esp_enabled" in payload:
+            raw_enabled = payload.get("esp_enabled")
+            enabled = raw_enabled if isinstance(raw_enabled, bool) else parse_bool(str(raw_enabled), True)
+            updates["ESP_SCREEN_ENABLED"] = "1" if enabled else "0"
         esp_ip = str(payload.get("esp_ip", "")).strip()
-        if not esp_ip:
-            return jsonify({"ok": False, "msg": "请填写 ESP 屏幕 IP（例如 192.168.1.50）"}), 400
-        if not is_valid_ipv4(esp_ip):
-            return jsonify({"ok": False, "msg": "ESP IP 格式不正确，请填写 IPv4 地址"}), 400
+        if esp_ip:
+            if not is_valid_ipv4(esp_ip):
+                return jsonify({"ok": False, "msg": "ESP IP 格式不正确，请填写 IPv4 地址"}), 400
+            updates["ESP_SCREEN_IP"] = esp_ip
+        if not updates:
+            return jsonify({"ok": False, "msg": "没有可保存的 ESP 配置"}), 400
 
-        update_api_keys_file({"ESP_SCREEN_IP": esp_ip})
+        update_api_keys_file(updates)
         cfg = get_runtime_esp_config()
+        msg_parts = []
+        if "ESP_SCREEN_IP" in updates:
+            msg_parts.append(f"屏幕 IP：{updates['ESP_SCREEN_IP']}")
+        if "ESP_SCREEN_ENABLED" in updates:
+            msg_parts.append("小屏幕已启用" if updates["ESP_SCREEN_ENABLED"] == "1" else "小屏幕已关闭")
+        saved_msg = "已保存。" + (" " + "；".join(msg_parts) if msg_parts else "")
         return jsonify({
             "ok": True,
-            "msg": f"已保存 ESP 屏幕 IP：{esp_ip}",
+            "msg": saved_msg,
             "esp_enabled": cfg["enabled"],
             "esp_ip": cfg["ip"],
             "esp_port": cfg["port"],
@@ -2569,7 +2587,9 @@ def api_diagnose():
         print(f"[已接收] {save_path}")
         print("[开始基础摄影诊断]")
 
-        ai_result, used_vision_model = call_vision_auto(save_path)
+        geo = extract_geometry(save_path)
+        geometry_block = geo["prompt_block"] if geo else ""
+        ai_result, used_vision_model = call_vision_auto(save_path, geometry_block)
         preview_url = f"/uploads/{new_filename}"
         # 诊断阶段只保存原图，不推送到屏幕；屏幕仅展示 AI 生成结果。
         esp_push_ok, esp_push_msg = False, "等待 AI 生成后再推送到 ESP"
@@ -2583,6 +2603,7 @@ def api_diagnose():
             "preview_url": preview_url,
             "image_path": save_path,
             "vision_model": used_vision_model,
+            "detector_data": geo,
             "stage": "diagnosed",
             "diagnosis_report": ai_result,
             "user_intent": None,
@@ -2610,6 +2631,7 @@ def api_diagnose():
             "filename": new_filename,
             "preview_url": preview_url,
             "vision_model": used_vision_model,
+            "detector_data": geo,
             "ai_result": ai_result,
             "diagnosis_report": ai_result,
             "strategy_plan": None,
