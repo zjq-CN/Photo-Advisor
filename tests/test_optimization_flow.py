@@ -363,7 +363,7 @@ class GeometryInjectionTests(unittest.TestCase):
 
     def test_analysis_prompt_without_block_matches_original(self):
         prompt = app_module.build_analysis_prompt()
-        for key in ("你是专业摄影指导", "只输出一个 JSON 对象", "scene_summary", "ideal_image_prompt"):
+        for key in ("你是专业的人像摄影指导", "只输出一个 JSON 对象", "main_issue", "scene_summary", "ideal_image_prompt"):
             self.assertIn(key, prompt)
         self.assertNotIn("【检测器参考数据】", prompt)
 
@@ -446,6 +446,111 @@ class GeometryInjectionTests(unittest.TestCase):
             latest = json.loads(latest_path.read_text(encoding="utf-8"))
             self.assertEqual(latest["detector_data"], fake_geo)
             self.assertEqual(latest["detector_data"]["count_note"], "画面中检测到至少 1 张人脸")
+
+
+class VisionModePresetTests(unittest.TestCase):
+    """标准/快速双模式：preset 表、思考参数透传、/api/diagnose mode 字段。"""
+
+    @staticmethod
+    def _fake_response():
+        fake_response = Mock(status_code=200, text='{"ok":true}')
+        fake_response.json.return_value = {
+            "choices": [{"message": {"content": '{"scene_summary": "测试"}'}}]
+        }
+        return fake_response
+
+    def test_presets_shape_and_qwen_models_separated(self):
+        presets = app_module.VISION_MODE_PRESETS
+        self.assertEqual(set(presets), {"standard", "fast"})
+        for preset in presets.values():
+            self.assertEqual(len(preset["chain"]), 5)
+            qwen_idx = [i for i, m in enumerate(preset["chain"]) if m.startswith("qwen")]
+            for a, b in zip(qwen_idx, qwen_idx[1:]):
+                self.assertGreater(b - a, 1, "两个百炼 qwen 模型必须被非百炼模型隔开")
+        self.assertEqual(app_module.VISION_MODELS, presets["standard"]["chain"])
+
+    def test_deepseek_thinking_param_passthrough(self):
+        fake_response = self._fake_response()
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as handle:
+            handle.write(b"fake-image-bytes")
+            image_path = handle.name
+        try:
+            with patch.object(app_module.requests, "post", return_value=fake_response) as post:
+                app_module.call_vision_deepseek_once("deepseek-test", image_path, "", {"thinking": {"type": "disabled"}})
+                self.assertEqual(post.call_args.kwargs["json"]["thinking"], {"type": "disabled"})
+            with patch.object(app_module.requests, "post", return_value=fake_response) as post:
+                app_module.call_vision_deepseek_once("deepseek-test", image_path, "")
+                self.assertEqual(post.call_args.kwargs["json"]["thinking"], {"type": "enabled"})
+        finally:
+            os.unlink(image_path)
+
+    def test_dashscope_enable_thinking_from_extra_params(self):
+        fake_response = self._fake_response()
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as handle:
+            handle.write(b"fake-image-bytes")
+            image_path = handle.name
+        try:
+            with patch.object(app_module.requests, "post", return_value=fake_response) as post:
+                app_module.call_vision_once("dashscope-test", image_path, "", {"enable_thinking": True})
+                self.assertTrue(post.call_args.kwargs["json"]["enable_thinking"])
+            with patch.object(app_module.requests, "post", return_value=fake_response) as post:
+                app_module.call_vision_once("dashscope-test", image_path, "")
+                self.assertFalse(post.call_args.kwargs["json"]["enable_thinking"])
+        finally:
+            os.unlink(image_path)
+
+    def test_zhipu_reasoning_effort_override(self):
+        fake_response = self._fake_response()
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as handle:
+            handle.write(b"fake-image-bytes")
+            image_path = handle.name
+        try:
+            with patch.object(app_module.requests, "post", return_value=fake_response) as post:
+                app_module.call_vision_zhipu_once("glm-5.3-flash", image_path, "", {"reasoning_effort": "high"})
+                self.assertEqual(post.call_args.kwargs["json"]["reasoning_effort"], "high")
+            with patch.object(app_module.requests, "post", return_value=fake_response) as post:
+                app_module.call_vision_zhipu_once("glm-5.3-flash", image_path, "")
+                self.assertEqual(post.call_args.kwargs["json"]["reasoning_effort"], app_module.ZHIPU_REASONING_EFFORT)
+        finally:
+            os.unlink(image_path)
+
+    def test_api_diagnose_mode_passthrough_and_validation(self):
+        fake_ai_result = {"scene_summary": "一名人物站在室内窗边。"}
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            session_dir = root / "sessions"
+            session_dir.mkdir()
+            upload_dir = root / "uploads"
+            upload_dir.mkdir()
+            latest_path = root / "latest.json"
+            image_path = root / "photo.jpg"
+            cv2.imwrite(str(image_path), np.zeros((60, 60, 3), dtype=np.uint8))
+            image_bytes = image_path.read_bytes()
+            with patch.dict(app_module.app.config, {"UPLOAD_FOLDER": str(upload_dir)}), patch.object(
+                app_module, "SESSION_FOLDER", str(session_dir)
+            ), patch.object(app_module, "LATEST_RESULT_JSON", str(latest_path)), patch.object(
+                app_module, "extract_geometry", return_value=None
+            ), patch.object(
+                app_module, "call_vision_auto", return_value=(fake_ai_result, "vision-test")
+            ) as vision_call:
+                with app_module.app.test_client() as client:
+                    response = client.post(
+                        "/api/diagnose",
+                        data={"photo": (io.BytesIO(image_bytes), "photo.jpg"), "mode": "fast"},
+                        content_type="multipart/form-data",
+                    )
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(vision_call.call_args.kwargs["mode"], "fast")
+                    self.assertEqual(response.get_json()["vision_mode"], "fast")
+
+                    response = client.post(
+                        "/api/diagnose",
+                        data={"photo": (io.BytesIO(image_bytes), "photo.jpg"), "mode": "bogus"},
+                        content_type="multipart/form-data",
+                    )
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(vision_call.call_args.kwargs["mode"], "standard")
+                    self.assertEqual(response.get_json()["vision_mode"], "standard")
 
 
 if __name__ == "__main__":

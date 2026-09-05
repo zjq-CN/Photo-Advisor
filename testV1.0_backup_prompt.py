@@ -184,7 +184,10 @@ ZHIPU_API_KEY = load_env("ZHIPU_API_KEY")
 ZHIPU_IMAGE_URL = load_env("ZHIPU_IMAGE_URL", "https://open.bigmodel.cn/api/paas/v4/images/generations")
 ZHIPU_IMAGE_MODEL = load_env("ZHIPU_IMAGE_MODEL", "glm-image")
 ZHIPU_CHAT_URL = load_env("ZHIPU_CHAT_URL", "https://open.bigmodel.cn/api/paas/v4/chat/completions")
-ZHIPU_VISION_MODEL = load_env("ZHIPU_VISION_MODEL", "glm-4.6v-flash")
+ZHIPU_VISION_MODEL = load_env("ZHIPU_VISION_MODEL", "glm-5.3-flash")
+# 思考力度（文档：thinking.type 仅支持 enabled，力度走顶层 reasoning_effort low/high/max）
+# low = 零思考，实测 ~25-36s、质量与默认档（reasoning ~2000 tokens、30-120s）无肉眼差异
+ZHIPU_REASONING_EFFORT = load_env("ZHIPU_REASONING_EFFORT", "low")
 
 # 豆包图像配置
 DOUBAO_API_KEY = load_env("DOUBAO_API_KEY")
@@ -224,18 +227,44 @@ ESP_SCREEN_SIZE = load_env("ESP_SCREEN_SIZE", "320x240")
 ESP_SCREEN_JPEG_QUALITY = parse_int(load_env("ESP_SCREEN_JPEG_QUALITY", "85"), 85)
 ESP_SCREEN_TIMEOUT_SEC = parse_float(load_env("ESP_SCREEN_TIMEOUT_SEC", "6"), 6.0)
 
-# 视觉理解模型：主 -> 备（按 2026-08 模型考试结果排序）
-# qwen3.5-flash 经测试选为唯一主模型：6/6 成功、平均 12.7s、分析质量稳定；
-# 其余按稳定性/速度作 fallback，同一供应商（阿里百炼）的 qwen 模型错开，
-# 避免百炼整体限流时连续失败。API Key 配置保留在 _config/api_keys.json，
-# 换模型只需调整本列表，无需改 Key 文件。
-VISION_MODELS = [
-    "qwen3.5-flash",
-    "deepseek-v4-flash-vision-exp",
-    "qwen3-vl-plus",
-    "hy-vision-2.0-instruct",
-    "glm-4.6v-flash",
-]
+# 视觉诊断模式（前端拍照页可选，/api/diagnose 的 mode 字段）：模式 = 模型链顺序 + 每模型思考参数覆盖
+# - standard（默认）：glm-5.3-flash 主力（质量优先，压测 p50 26.3s / p95 33.9s），
+#   deepseek 思考档作质量救火（用户拍板：兜底模型保留思考）；
+# - fast：qwen3.5-flash 主力（关思考 ~5-10s），deepseek 关思考守速度承诺，glm 退居慢速救火。
+# 链内同一供应商（阿里百炼）的 qwen 模型错开，避免百炼整体限流时连续失败。
+# 2026-08-31 晚：修复 qwen extra_body 死参数 + 关闭 deepseek 默认高档思考后，qwen 实测 ~5-10s、deepseek ~4-5s（均零思考）。
+# API Key 配置保留在 _config/api_keys.json，换模型只需调整本表，无需改 Key 文件。
+VISION_MODE_PRESETS = {
+    "standard": {
+        "chain": [
+            "glm-5.3-flash",
+            "qwen3.5-flash",
+            "deepseek-v4-flash-vision-exp",
+            "qwen3-vl-plus",
+            "hy-vision-2.0-instruct",
+        ],
+        "params": {
+            "glm-5.3-flash": {"reasoning_effort": ZHIPU_REASONING_EFFORT},
+            "qwen3.5-flash": {"enable_thinking": False},
+            "deepseek-v4-flash-vision-exp": {"thinking": {"type": "enabled"}},
+        },
+    },
+    "fast": {
+        "chain": [
+            "qwen3.5-flash",
+            "deepseek-v4-flash-vision-exp",
+            "glm-5.3-flash",
+            "qwen3-vl-plus",
+            "hy-vision-2.0-instruct",
+        ],
+        "params": {
+            "qwen3.5-flash": {"enable_thinking": False},
+            "deepseek-v4-flash-vision-exp": {"thinking": {"type": "disabled"}},
+            "glm-5.3-flash": {"reasoning_effort": ZHIPU_REASONING_EFFORT},
+        },
+    },
+}
+VISION_MODELS = VISION_MODE_PRESETS["standard"]["chain"]  # 兼容旧引用（run_exam.py、启动打印等）
 
 # 图像编辑模型：推荐顺序（主 -> 备）
 # 经 2026-08 生图模型考试筛选，保留三个互为补充的模型：
@@ -1110,28 +1139,31 @@ def generate_access_qrcodes(host_ip: str, port: int = 5000) -> Dict[str, str]:
 # =========================
 def build_analysis_prompt(geometry_block: str = "") -> str:
     prompt = """
-你是专业摄影指导。分析照片后，只输出一个 JSON 对象（不要 markdown 代码块，不要任何解释文字），key 必须如下：
+你是专业的人像摄影指导，用户用手机拍摄。分析照片后，只输出一个 JSON 对象（不要 markdown 代码块，不要任何解释文字），key 必须如下：
 
 {
-  "scene_summary": "画面简短概括，1-2句",
-  "subject_gender": "仅填\"男性\"或\"女性\"，按照片真实外观",
-  "subject_position_analysis": "人物位置（偏左/右/居中、高低、留白是否合理）",
-  "camera_angle_analysis": "拍摄角度（平拍/俯拍/仰拍、正面/侧面）及是否合适",
+  "scene_summary": "画面简短概括，1-2句；多人时点明主体人物",
+  "main_issue": "这张照片最需要解决的一个问题，一句话；没有明显问题时写\"无明显问题\"",
+  "subject_gender": "仅填\"男性\"或\"女性\"，按照片真实外观；多人时填最主体的人物（通常是面部最大或最清晰者）",
+  "subject_position_analysis": "主体人物位置（偏左/右/居中、高低、留白是否合理）",
+  "camera_angle_analysis": "拍摄角度（平拍/俯拍/仰拍、正面/侧面）及是否合适，并说明该角度对人物观感的影响",
   "shot_size_analysis": "景别（头像/半身/全身/环境人像）、人物占比、裁切是否合理",
-  "composition_analysis": "构图诊断：头顶留白、人物偏移、前景遮挡、水平垂直线、背景干扰",
+  "composition_analysis": "构图诊断：头顶留白、人物偏移、前景遮挡、水平垂直线、背景干扰，以及画质问题（模糊/糊脸/过暗过曝）",
   "light_source_inference": "主光源方向及依据；若明暗关系不明显、无法可靠判断，写\"光源方向不明显\"，不要强行推测",
-  "recommended_shooting_position": "摄影师下一步机位与站位建议",
-  "suggested_adjustment": "人物姿态与相机分别如何调整",
+  "recommended_shooting_position": "拍摄者下一步怎么移动，用口语化动作描述（往哪走、蹲多低、手机举多高），不用影棚术语",
+  "suggested_adjustment": "人物姿态与拍摄者分别怎么调整，动作要当场可做",
   "ideal_image_prompt": "按建议调整完成后的理想画面描述（见下方要求）"
 }
+
+字段写法：每个诊断字段按\"现象 → 背后的摄影原则 → 怎么改\"组织；做得好的地方要点明它符合了什么原则。照片有多人时只分析画面主体，不逐人展开。
 
 ideal_image_prompt 要求：
 1. 描述\"调整后\"的理想画面，不是当前照片，不是建议或教学说明；
 2. 重点描述人物理想位置、理想角度、整体观感，不详细描述环境（编辑模型会参考原图）；
-3. 仅在能明确判断光源方向时描述光线，否则不强调具体光源位置；
-4. 真实照片效果，非卡通/插画，无箭头图标标注文字，人物性别与 subject_gender 一致。
+3. 仅在能明确判断光源方向时描述光线，否则不提光源；
+4. 真实照片效果，非卡通/插画，无箭头、图标或标注文字，人物性别与 subject_gender 一致。
 
-整体：输出中文；不虚构原图中没有的光源；分析建议要可执行。
+整体：输出中文；建议要具体到当场能做。
 """.strip()
     if geometry_block:
         return prompt + "\n\n" + geometry_block
@@ -1140,6 +1172,7 @@ ideal_image_prompt 要求：
 def normalize_ai_result(result: Dict[str, Any]) -> Dict[str, str]:
     keys = [
         "scene_summary",
+        "main_issue",
         "subject_gender",
         "subject_position_analysis",
         "camera_angle_analysis",
@@ -1160,13 +1193,14 @@ def normalize_ai_result(result: Dict[str, Any]) -> Dict[str, str]:
 # =========================
 # 视觉理解
 # =========================
-def call_vision_once(model_name: str, image_path: str, geometry_block: str = "") -> Dict[str, str]:
+def call_vision_once(model_name: str, image_path: str, geometry_block: str = "", extra_params: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
+    extra_params = extra_params or {}
     if model_name.startswith("hunyuan") or model_name.startswith("hy-"):
         return call_vision_hunyuan_once(model_name, image_path, geometry_block)
     if model_name.startswith("deepseek"):
-        return call_vision_deepseek_once(model_name, image_path, geometry_block)
+        return call_vision_deepseek_once(model_name, image_path, geometry_block, extra_params)
     if model_name.startswith("glm-"):
-        return call_vision_zhipu_once(model_name, image_path, geometry_block)
+        return call_vision_zhipu_once(model_name, image_path, geometry_block, extra_params)
     image_data_url = image_file_to_data_url(image_path)
     prompt = build_analysis_prompt(geometry_block)
 
@@ -1187,9 +1221,9 @@ def call_vision_once(model_name: str, image_path: str, geometry_block: str = "")
             }
         ],
         "max_tokens": 2048,
-        "extra_body": {
-            "enable_thinking": False
-        }
+        # enable_thinking 是百炼私有参数：OpenAI SDK 里经 extra_body 合并进 JSON 顶层，裸 requests 必须直接放顶层
+        # （历史坑：曾把 "extra_body" 当 JSON 字段发送，服务端忽略 → 思考从未关闭，实测 39.5s→5.8s）
+        "enable_thinking": bool(extra_params.get("enable_thinking", False)),
     }
 
     resp = requests.post(COMPAT_CHAT_URL, headers=headers, json=payload, timeout=120)
@@ -1269,7 +1303,7 @@ def call_vision_hunyuan_once(model_name: str, image_path: str, geometry_block: s
     return normalize_ai_result(result)
 
 
-def call_vision_deepseek_once(model_name: str, image_path: str, geometry_block: str = "") -> Dict[str, str]:
+def call_vision_deepseek_once(model_name: str, image_path: str, geometry_block: str = "", extra_params: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
     if not DEEPSEEK_API_KEY:
         raise RuntimeError("未配置 DEEPSEEK_API_KEY")
 
@@ -1291,7 +1325,10 @@ def call_vision_deepseek_once(model_name: str, image_path: str, geometry_block: 
                 ],
             }
         ],
-        "max_tokens": 2048,
+        # 思考档（用户拍板保留思考提升兜底质量）：v4 系默认即 enabled + effort=high，显式声明防上游默认变化
+        # 注意：thinking 开启时勿配 reasoning_effort=low + 小 max_tokens——实测思考恰好吃满 2048 预算导致 content 截断
+        "thinking": (extra_params or {}).get("thinking", {"type": "enabled"}),
+        "max_tokens": 4096,
     }
     resp = requests.post(DEEPSEEK_CHAT_URL, headers=headers, json=payload, timeout=120)
     print(f"=== 视觉模型 {model_name} 状态码 ===")
@@ -1316,7 +1353,7 @@ def call_vision_deepseek_once(model_name: str, image_path: str, geometry_block: 
     return normalize_ai_result(result)
 
 
-def call_vision_zhipu_once(model_name: str, image_path: str, geometry_block: str = "") -> Dict[str, str]:
+def call_vision_zhipu_once(model_name: str, image_path: str, geometry_block: str = "", extra_params: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
     if not ZHIPU_API_KEY:
         raise RuntimeError("未配置 ZHIPU_API_KEY")
 
@@ -1338,9 +1375,11 @@ def call_vision_zhipu_once(model_name: str, image_path: str, geometry_block: str
                 ],
             }
         ],
-        "max_tokens": 2048,
+        "max_tokens": 4096,  # glm-5.3-flash 为思考型：reasoning+答案共享配额，2048 会被思考吃光导致 content 为空
     }
-    resp = requests.post(ZHIPU_CHAT_URL, headers=headers, json=payload, timeout=120)
+    if model_name.startswith("glm-5.3"):
+        payload["reasoning_effort"] = (extra_params or {}).get("reasoning_effort") or ZHIPU_REASONING_EFFORT
+    resp = requests.post(ZHIPU_CHAT_URL, headers=headers, json=payload, timeout=180)  # 思考型模型单次可达 ~120s，120s 会误杀
     print(f"=== 视觉模型 {model_name} 状态码 ===")
     print(resp.status_code)
     print(resp.text[:3000])
@@ -1373,16 +1412,18 @@ def check_vision_model_ready(model_name: str) -> Tuple[bool, str]:
     return bool(DASHSCOPE_API_KEY), "未配置 DASHSCOPE_API_KEY"
 
 
-def call_vision_auto(image_path: str, geometry_block: str = "") -> Tuple[Dict[str, str], str]:
+def call_vision_auto(image_path: str, geometry_block: str = "", mode: str = "standard") -> Tuple[Dict[str, str], str]:
+    preset = VISION_MODE_PRESETS.get(mode) or VISION_MODE_PRESETS["standard"]
+    params_map = preset["params"]
     last_error: Optional[Exception] = None
     ready_models: List[str] = []
-    for model_name in VISION_MODELS:
+    for model_name in preset["chain"]:
         ready, _ = check_vision_model_ready(model_name)
         if not ready:
             continue
         ready_models.append(model_name)
         try:
-            result = call_vision_once(model_name, image_path, geometry_block)
+            result = call_vision_once(model_name, image_path, geometry_block, params_map.get(model_name))
             return result, model_name
         except requests.HTTPError as e:
             last_error = e
@@ -2587,9 +2628,16 @@ def api_diagnose():
         print(f"[已接收] {save_path}")
         print("[开始基础摄影诊断]")
 
+        mode = (request.form.get("mode") or "standard").strip()
+        if mode not in VISION_MODE_PRESETS:
+            mode = "standard"
+        diagnosis_started = time.time()
+
         geo = extract_geometry(save_path)
         geometry_block = geo["prompt_block"] if geo else ""
-        ai_result, used_vision_model = call_vision_auto(save_path, geometry_block)
+        ai_result, used_vision_model = call_vision_auto(save_path, geometry_block, mode=mode)
+        diagnosis_elapsed = round(time.time() - diagnosis_started, 1)
+        print(f"[诊断完成] mode={mode} model={used_vision_model} 耗时={diagnosis_elapsed}s")
         preview_url = f"/uploads/{new_filename}"
         # 诊断阶段只保存原图，不推送到屏幕；屏幕仅展示 AI 生成结果。
         esp_push_ok, esp_push_msg = False, "等待 AI 生成后再推送到 ESP"
@@ -2603,6 +2651,8 @@ def api_diagnose():
             "preview_url": preview_url,
             "image_path": save_path,
             "vision_model": used_vision_model,
+            "vision_mode": mode,
+            "diagnosis_elapsed": diagnosis_elapsed,
             "detector_data": geo,
             "stage": "diagnosed",
             "diagnosis_report": ai_result,
@@ -2631,6 +2681,8 @@ def api_diagnose():
             "filename": new_filename,
             "preview_url": preview_url,
             "vision_model": used_vision_model,
+            "vision_mode": mode,
+            "diagnosis_elapsed": diagnosis_elapsed,
             "detector_data": geo,
             "ai_result": ai_result,
             "diagnosis_report": ai_result,
@@ -2659,6 +2711,8 @@ def api_diagnose():
             "filename": new_filename,
             "preview_url": preview_url,
             "vision_model": used_vision_model,
+            "vision_mode": mode,
+            "diagnosis_elapsed": diagnosis_elapsed,
             "ai_result": ai_result,
             "diagnosis_report": ai_result,
             "esp_push_ok": esp_push_ok,

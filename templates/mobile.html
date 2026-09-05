@@ -206,6 +206,12 @@
       border-radius: var(--radius-xs); padding: 12px 14px;
       transition: background 0.35s ease, border-color 0.35s ease;
     }
+    .mode-switch { display: inline-flex; gap: 4px; padding: 4px; background: rgba(255,255,255,0.06); border-radius: 999px; backdrop-filter: blur(20px); margin-top: 18px; }
+    [data-theme="light"] .mode-switch { background: rgba(0,0,0,0.05); }
+    .mode-option { display: inline-flex; align-items: center; gap: 6px; border: none; background: transparent; color: var(--text-2, #9a958f); font-size: 13px; font-family: inherit; padding: 8px 16px; border-radius: 999px; cursor: pointer; transition: background .25s ease-out, color .25s ease-out; }
+    .mode-option svg { width: 14px; height: 14px; fill: currentColor; }
+    .mode-option.active { background: var(--accent-dim); color: var(--accent); font-weight: 600; }
+    .diag-meta { font-size: 11px; color: var(--accent); margin-top: 10px; letter-spacing: 0.3px; }
     .report-label { font-size: 12px; color: var(--accent); font-weight: 600; display: block; margin-bottom: 4px; }
     .report-value { font-size: 14px; color: var(--text-1); line-height: 1.6; }
     .suggestion-box {
@@ -525,6 +531,16 @@
           <svg viewBox="0 0 24 24"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
           拍照并分析
         </button>
+        <div class="mode-switch" id="modeSwitch" aria-label="诊断模式">
+          <button class="mode-option active" data-mode="standard" type="button">
+            <svg viewBox="0 0 24 24"><path d="M12 2l2.6 6.2 6.4.5-4.9 4.2 1.5 6.3L12 15.8 6.4 19.2l1.5-6.3L3 8.7l6.4-.5z"/></svg>
+            标准诊断
+          </button>
+          <button class="mode-option" data-mode="fast" type="button">
+            <svg viewBox="0 0 24 24"><path d="M13 2L4.5 12.5H11L9.5 22 19 10h-6.5z"/></svg>
+            快速诊断
+          </button>
+        </div>
         <div class="step1-hint" id="step1Hint">拍照后会自动进入诊断分析，结果将同步到电脑展示页和 ESP 屏幕。</div>
       </div>
     </div>
@@ -560,6 +576,7 @@
         <div class="glass-card">
           <div class="card-title">摄影诊断报告</div>
           <div class="card-subtitle">以下是对你照片的专业分析</div>
+          <div class="diag-meta" id="diagMeta" style="display:none"></div>
         </div>
         <div class="report-grid" id="reportGrid">
           <div class="report-row"><span class="report-label">画面概括</span><span class="report-value" id="scene_summary">-</span></div>
@@ -723,6 +740,8 @@
       espConfigStatus: document.getElementById('espConfigStatus'),
       espEnabledToggle: document.getElementById('espEnabledToggle'),
       step1Hint: document.getElementById('step1Hint'),
+      modeSwitch: document.getElementById('modeSwitch'),
+      diagMeta: document.getElementById('diagMeta'),
       aiCardSubtitle: document.getElementById('aiCardSubtitle'),
       themeToggle: document.getElementById('themeToggle'),
     };
@@ -924,9 +943,7 @@
     let espScreenEnabled = true;
     function updateEspUi(cfg) {
       espScreenEnabled = !cfg || cfg.esp_enabled !== false;
-      el.step1Hint.textContent = espScreenEnabled
-        ? '拍照后会自动进入诊断分析，结果将同步到电脑展示页和 ESP 屏幕。'
-        : '拍照后会自动进入诊断分析，结果将同步到电脑展示页（小屏幕已关闭）。';
+      updateStep1Hint();
       el.aiCardSubtitle.textContent = espScreenEnabled ? '点击图片可设为屏幕主图' : '小屏幕已关闭，结果仅展示在电脑端';
     }
     async function loadEspConfig() {
@@ -985,6 +1002,33 @@
       finally { button.disabled = false; }
     }
 
+    // ===== 诊断模式（标准/快速）=====
+    let diagnosisMode = localStorage.getItem('pa_vision_mode') || 'standard';
+    if (diagnosisMode !== 'fast' && diagnosisMode !== 'standard') diagnosisMode = 'standard';
+    function updateStep1Hint() {
+      const espPart = espScreenEnabled !== false
+        ? '结果将同步到电脑展示页和 ESP 屏幕。'
+        : '结果将同步到电脑展示页（小屏幕已关闭）。';
+      el.step1Hint.textContent = diagnosisMode === 'fast'
+        ? '快速模式约 5-10 秒出结果，诊断较标准模式简略；' + espPart
+        : '拍照后会自动进入诊断分析，' + espPart;
+    }
+    function applyModeUI() {
+      el.modeSwitch.querySelectorAll('.mode-option').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === diagnosisMode);
+      });
+      updateStep1Hint();
+    }
+    el.modeSwitch.querySelectorAll('.mode-option').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (diagnosisMode === btn.dataset.mode) return;
+        diagnosisMode = btn.dataset.mode;
+        localStorage.setItem('pa_vision_mode', diagnosisMode);
+        applyModeUI();
+      });
+    });
+    applyModeUI();
+
     // ===== Photo capture =====
     el.captureBtn.addEventListener('click', () => el.photoInput.click());
     el.photoInput.addEventListener('change', async () => {
@@ -998,6 +1042,7 @@
         el.generateBtn.disabled = true; el.genStatus.textContent = '';
         el.resultContent.style.display = 'none'; el.genLoader.style.display = 'none'; el.resultStatus.textContent = '';
         el.aiGrid.innerHTML = '';
+        el.diagMeta.style.display = 'none';
 
         // Show preview
         const localUrl = URL.createObjectURL(file);
@@ -1007,10 +1052,11 @@
         // Go to step 2 and start diagnosis animation
         goToStep(2, 'forward');
         startDiagAnim();
-        setStatus(el.diagStatus, '正在上传并执行基础摄影诊断…');
+        setStatus(el.diagStatus, diagnosisMode === 'fast' ? '正在上传并执行快速诊断…' : '正在上传并执行基础摄影诊断…');
 
         const fd = new FormData();
         fd.append('photo', file);
+        fd.append('mode', diagnosisMode);
         const r = await fetch('/api/diagnose', { method: 'POST', body: fd });
         const d = await r.json();
         if (!r.ok || !d.ok) throw new Error(d.msg || '上传失败');
@@ -1027,6 +1073,14 @@
         setField('light_source_inference', ai.light_source_inference);
         setField('recommended_shooting_position', ai.recommended_shooting_position);
         setField('suggested_adjustment', ai.suggested_adjustment);
+
+        if (d.vision_model || d.diagnosis_elapsed != null) {
+          const parts = [d.mode === 'fast' ? '快速模式' : '标准模式'];
+          if (d.vision_model) parts.push(d.vision_model);
+          if (d.diagnosis_elapsed != null) parts.push(d.diagnosis_elapsed + 's');
+          el.diagMeta.textContent = parts.join(' · ');
+          el.diagMeta.style.display = '';
+        }
 
         stopDiagAnim();
         setTimeout(() => {

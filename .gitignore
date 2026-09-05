@@ -9,6 +9,7 @@ _config/
 
 # Project documentation (local only, not for GitHub)
 项目说明.md
+结构层实现提示词.txt
 
 # Model exam (local testing, not for GitHub)
 tests/model_exam/
