@@ -770,8 +770,8 @@
       el.steps.forEach(s => {
         const n = parseInt(s.dataset.step);
         s.classList.remove('active', 'exit-left', 'step-enter-from-left');
-        if (n === prevStep) {
-          s.classList.add(dirClass === 'forward' ? 'exit-left' : '');
+        if (n === prevStep && dirClass === 'forward') {
+          s.classList.add('exit-left');
           setTimeout(() => s.classList.remove('exit-left'), 400);
         }
         if (n === step) {
@@ -798,15 +798,17 @@
     }
 
     function updateNextBtn() {
+      // 第 3 步用"生成"按钮替代"下一步"，其余步骤必须把按钮恢复显示，
+      // 否则从第 3 步返回后会一直保持 display:none，无法再前进。
+      el.btnNext.style.display = currentStep === 3 ? 'none' : '';
       if (currentStep === 1) {
         el.btnNext.disabled = true; el.btnNext.textContent = '下一步';
       } else if (currentStep === 2) {
         el.btnNext.disabled = !diagnosisComplete; el.btnNext.textContent = '下一步';
       } else if (currentStep === 3) {
-        el.btnNext.style.display = 'none'; // 使用"生成"按钮替代
         el.generateBtn.disabled = !diagnosisComplete;
       } else {
-        el.btnNext.style.display = ''; el.btnNext.disabled = true; el.btnNext.textContent = '下一步';
+        el.btnNext.disabled = true; el.btnNext.textContent = '下一步';
       }
     }
 
