@@ -3,6 +3,10 @@ _config/
 .env
 .env.*
 !.env.example
+api_keys.json
+令牌.txt
+*token*.txt
+*令牌*
 
 # Local todo notes (not for GitHub)
 待办-*.md
@@ -44,5 +48,8 @@ static/qr_display.png
 *.tmp
 *.bak
 ~*
+
+# Local working-dir archives (large, not source)
+屏幕端压缩包.zip
 
 tests/structure_test_images/

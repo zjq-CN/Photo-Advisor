@@ -216,7 +216,7 @@ HUNYUAN_VISION_MODEL = load_env("HUNYUAN_VISION_MODEL", "hy-vision-2.0-instruct"
 # DeepSeek 视觉理解配置
 DEEPSEEK_API_KEY = load_env("DEEPSEEK_API_KEY")
 DEEPSEEK_CHAT_URL = load_env("DEEPSEEK_CHAT_URL", "https://api.deepseek.com/chat/completions")
-DEEPSEEK_VISION_MODEL = load_env("DEEPSEEK_VISION_MODEL", "deepseek-v4-flash-vision-exp")
+DEEPSEEK_VISION_MODEL = load_env("DEEPSEEK_VISION_MODEL", "deepseek-flash")
 
 # ESP32 屏幕推送配置
 ESP_SCREEN_ENABLED = parse_bool(load_env("ESP_SCREEN_ENABLED", "1"), True)
@@ -238,28 +238,28 @@ VISION_MODE_PRESETS = {
     "standard": {
         "chain": [
             "glm-5.3-flash",
-            "qwen3.5-flash",
-            "deepseek-v4-flash-vision-exp",
+            "deepseek-flash",
             "qwen3-vl-plus",
             "hy-vision-2.0-instruct",
+            "qwen3.8-flash",
         ],
         "params": {
             "glm-5.3-flash": {"reasoning_effort": ZHIPU_REASONING_EFFORT},
-            "qwen3.5-flash": {"enable_thinking": False},
-            "deepseek-v4-flash-vision-exp": {"thinking": {"type": "enabled"}},
+            "deepseek-flash": {"thinking": {"type": "enabled"}},
+            "qwen3.8-flash": {"enable_thinking": False},
         },
     },
     "fast": {
         "chain": [
-            "qwen3.5-flash",
-            "deepseek-v4-flash-vision-exp",
+            "qwen3.8-flash",
+            "deepseek-flash",
             "glm-5.3-flash",
             "qwen3-vl-plus",
             "hy-vision-2.0-instruct",
         ],
         "params": {
-            "qwen3.5-flash": {"enable_thinking": False},
-            "deepseek-v4-flash-vision-exp": {"thinking": {"type": "disabled"}},
+            "deepseek-flash": {"thinking": {"type": "disabled"}},
+            "qwen3.8-flash": {"enable_thinking": False},
             "glm-5.3-flash": {"reasoning_effort": ZHIPU_REASONING_EFFORT},
         },
     },
@@ -468,6 +468,39 @@ def image_file_to_jimeng_base64(image_path: str, max_edge: int = 1024, jpeg_qual
     return base64.b64encode(enc.tobytes()).decode("utf-8")
 
 
+def _repair_json_string(raw: str) -> str:
+    """修复模型输出中常见的 JSON 格式错误（如中文引号""、字符串内未转义的双引号）。"""
+    # 1) 中文引号 → 转义双引号
+    raw = raw.replace('\u201c', '\\"').replace('\u201d', '\\"')
+    # 2) 字符串值内的未转义双引号：逐字符扫描，只处理 JSON key 之外的位置
+    out, in_str, i = [], False, 0
+    while i < len(raw):
+        ch = raw[i]
+        if ch == '\\' and in_str:
+            out.append(ch)
+            if i + 1 < len(raw):
+                out.append(raw[i + 1])
+            i += 2
+            continue
+        if ch == '"':
+            if not in_str:
+                in_str = True
+                out.append(ch)
+            else:
+                # 判断这个 " 是值结束符还是值内部的引号
+                nxt = next((raw[j] for j in range(i + 1, len(raw)) if raw[j] not in ' \t\r\n'), '')
+                if nxt in (',', '}', ']'):
+                    in_str = False
+                    out.append(ch)
+                else:
+                    out.append('\\"')
+            i += 1
+            continue
+        out.append(ch)
+        i += 1
+    return ''.join(out)
+
+
 def extract_json_from_text(text: str) -> dict:
     text = text.strip()
 
@@ -478,11 +511,21 @@ def extract_json_from_text(text: str) -> dict:
 
     fenced = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL | re.IGNORECASE)
     if fenced:
-        return json.loads(fenced.group(1))
+        try:
+            return json.loads(fenced.group(1))
+        except Exception:
+            pass
 
     brace = re.search(r"(\{.*\})", text, re.DOTALL)
     if brace:
-        return json.loads(brace.group(1))
+        try:
+            return json.loads(brace.group(1))
+        except Exception:
+            # 最后尝试修复格式错误
+            try:
+                return json.loads(_repair_json_string(brace.group(1)))
+            except Exception:
+                pass
 
     raise ValueError("未能从模型返回中解析出 JSON")
 
@@ -1326,31 +1369,40 @@ def call_vision_deepseek_once(model_name: str, image_path: str, geometry_block: 
             }
         ],
         # 思考档（用户拍板保留思考提升兜底质量）：v4 系默认即 enabled + effort=high，显式声明防上游默认变化
-        # 注意：thinking 开启时勿配 reasoning_effort=low + 小 max_tokens——实测思考恰好吃满 2048 预算导致 content 截断
+        # 注意：thinking 开启时勿配 reasoning_effort=low + 小 max_tokens——实测思考恰好吃满预算导致 content 截断
+        # V4.1 Flash reasoning 更 verbose，8192 才够 reasoning + content 各自充分
         "thinking": (extra_params or {}).get("thinking", {"type": "enabled"}),
-        "max_tokens": 4096,
+        "max_tokens": 8192,
     }
-    resp = requests.post(DEEPSEEK_CHAT_URL, headers=headers, json=payload, timeout=120)
-    print(f"=== 视觉模型 {model_name} 状态码 ===")
-    print(resp.status_code)
-    print(resp.text[:3000])
-    if resp.status_code != 200:
-        raise requests.HTTPError(response=resp)
-    data = resp.json()
-    message = data.get("choices", [{}])[0].get("message", {})
-    content = message.get("content", "")
-    if isinstance(content, list):
-        text_parts: List[str] = []
-        for item in content:
-            if isinstance(item, dict) and "text" in item:
-                text_parts.append(str(item["text"]))
-            elif isinstance(item, str):
-                text_parts.append(item)
-        content_text = "\n".join(text_parts).strip()
-    else:
-        content_text = str(content).strip()
-    result = extract_json_from_text(content_text)
-    return normalize_ai_result(result)
+    # V4.1 Flash 偶尔在 JSON 字符串值内混入未转义双引号，重试一次即可恢复
+    last_err: Optional[Exception] = None
+    for _attempt in range(2):
+        resp = requests.post(DEEPSEEK_CHAT_URL, headers=headers, json=payload, timeout=120)
+        print(f"=== 视觉模型 {model_name} 状态码 ===")
+        print(resp.status_code)
+        print(resp.text[:3000])
+        if resp.status_code != 200:
+            raise requests.HTTPError(response=resp)
+        data = resp.json()
+        message = data.get("choices", [{}])[0].get("message", {})
+        content = message.get("content", "")
+        if isinstance(content, list):
+            text_parts: List[str] = []
+            for item in content:
+                if isinstance(item, dict) and "text" in item:
+                    text_parts.append(str(item["text"]))
+                elif isinstance(item, str):
+                    text_parts.append(item)
+            content_text = "\n".join(text_parts).strip()
+        else:
+            content_text = str(content).strip()
+        try:
+            result = extract_json_from_text(content_text)
+            return normalize_ai_result(result)
+        except (json.JSONDecodeError, ValueError) as e:
+            last_err = e
+            print(f"[retry] JSON 解析失败，重试: {e}")
+    raise last_err  # type: ignore[misc]
 
 
 def call_vision_zhipu_once(model_name: str, image_path: str, geometry_block: str = "", extra_params: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
