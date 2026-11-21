@@ -1,4 +1,4 @@
-<#
+﻿<#
   通过 GitHub REST API 推送本地提交（不需要 github.com 直连，只需要 api.github.com）。
 
   为什么需要它：国内网络下 github.com:443 常被阻断，但 api.github.com 通常可访问，
@@ -52,9 +52,16 @@ try {
     $repoName = $Matches['repo']
 
     if (-not $Branch) {
-        $Branch = (git rev-parse --abbrev-ref "$RemoteName/HEAD" 2>$null)
-        if (-not $Branch -or $Branch -match 'HEAD') {
-            $Branch = (git rev-parse --abbrev-ref HEAD)
+        $Branch = ''
+        try {
+            $upstream = (git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>$null)
+            if ($LASTEXITCODE -eq 0 -and $upstream) {
+                $Branch = ($upstream -replace "^$RemoteName/", '').Trim()
+            }
+        }
+        catch { }
+        if (-not $Branch) {
+            $Branch = (git rev-parse --abbrev-ref HEAD).Trim()
         }
     }
     $Branch = $Branch -replace "^$RemoteName/", ''
