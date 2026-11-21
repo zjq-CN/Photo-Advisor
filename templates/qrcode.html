@@ -20,6 +20,13 @@
       --radius: 16px;
       --radius-sm: 12px;
       --glass-blur: 20px;
+      /* ——— 投屏新增 token（dark 值） ——— */
+      --bg-hover: rgba(255,255,255,0.10);
+      --card-edge: rgba(255,255,255,0.10);
+      --hairline: rgba(255,255,255,0.07);
+      --chip: rgba(255,255,255,0.05);
+      --focus: rgba(123,163,184,0.60);
+      --qr-plate: #FFFFFF;
     }
     html[data-theme="light"] {
       --bg-base: #F2F0ED;
@@ -32,6 +39,13 @@
       --accent-dim: rgba(107,149,168,0.15);
       --border: rgba(0,0,0,0.07);
       --shadow: 0 8px 32px rgba(0,0,0,0.06);
+      /* ——— 投屏新增 token（light 值） ——— */
+      --bg-hover: rgba(0,0,0,0.05);
+      --card-edge: rgba(255,255,255,0.95);
+      --hairline: rgba(0,0,0,0.07);
+      --chip: rgba(0,0,0,0.035);
+      --focus: rgba(107,149,168,0.60);
+      --qr-plate: #FFFFFF;
     }
     body {
       background: var(--bg-base);
@@ -39,73 +53,143 @@
       font-family: -apple-system, "SF Pro Display", "Helvetica Neue", "Microsoft YaHei", sans-serif;
       min-height: 100vh;
       display: flex; align-items: center; justify-content: center;
-      padding: 24px;
+      padding: clamp(16px, 3vh, 40px) clamp(16px, 3vw, 48px);
       transition: background 0.35s ease, color 0.35s ease;
     }
+    /* 一块板：左边讲怎么用，右边就是那个码 */
     .card {
       background: var(--bg-card);
       backdrop-filter: blur(var(--glass-blur));
       -webkit-backdrop-filter: blur(var(--glass-blur));
       border: 1px solid var(--border);
+      border-top-color: var(--card-edge);
       border-radius: var(--radius);
-      padding: 32px 28px;
+      padding: clamp(22px, 3vw, 46px);
       box-shadow: var(--shadow);
-      text-align: center;
-      max-width: 420px;
       width: 100%;
+      max-width: clamp(560px, 88vw, 1320px);
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: clamp(20px, 3.2vw, 56px);
+      align-items: center;
       transition: background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
     }
-    .icon-ring {
-      width: 64px; height: 64px; border-radius: 50%;
-      background: var(--accent-dim);
-      display: flex; align-items: center; justify-content: center;
-      margin: 0 auto 20px;
+    .card-main { min-width: 0; text-align: left; }
+    .eyebrow {
+      font-size: 13px; font-weight: 600; color: var(--accent);
+      letter-spacing: 0.16em; margin-bottom: 14px;
     }
-    .icon-ring svg { width: 30px; height: 30px; fill: var(--accent); }
-    .title { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; margin-bottom: 8px; }
-    .desc { font-size: 14px; color: var(--text-2); line-height: 1.7; margin-bottom: 24px; }
+    .title {
+      font-size: clamp(26px, 2.2vw, 40px); font-weight: 700;
+      letter-spacing: -0.4px; line-height: 1.25; margin-bottom: 12px;
+    }
+    .desc {
+      font-size: clamp(16px, 1.15vw, 20px); color: var(--text-2);
+      line-height: 1.7; margin-bottom: clamp(16px, 2vw, 26px);
+    }
+    .steps { list-style: none; margin-bottom: clamp(16px, 2vw, 26px); }
+    .steps li {
+      display: flex; align-items: baseline; gap: 12px;
+      font-size: clamp(16px, 1.1vw, 19px); color: var(--text-1);
+      line-height: 1.6; padding: 7px 0;
+    }
+    .steps li + li { border-top: 1px solid var(--hairline); }
+    .step-num {
+      flex: 0 0 auto;
+      font-size: 13px; font-weight: 700; color: var(--text-2);
+      font-variant-numeric: tabular-nums;
+      background: var(--chip); border: 1px solid var(--border);
+      border-radius: 999px; padding: 2px 9px;
+      transform: translateY(-1px);
+    }
+    .url-box {
+      border-top: 1px solid var(--hairline);
+      padding-top: 14px; margin-bottom: clamp(14px, 1.6vw, 22px);
+    }
+    .url-label {
+      display: block; font-size: 12px; color: var(--text-3);
+      letter-spacing: 0.08em; margin-bottom: 6px;
+    }
+    .url-text {
+      font-size: clamp(16px, 1.05vw, 19px); color: var(--accent);
+      word-break: break-all; line-height: 1.55; font-weight: 500;
+      font-variant-numeric: tabular-nums;
+    }
+    /* 码：白板 + 像素化，投到大屏也不糊 */
+    .card-qr { text-align: center; }
     .qr-wrap {
       display: inline-block;
-      background: #fff;
+      background: var(--qr-plate);
+      border: 1px solid var(--hairline);
       border-radius: var(--radius-sm);
-      padding: 12px;
-      margin-bottom: 20px;
+      padding: clamp(10px, 1.1vw, 18px);
+      margin-bottom: 14px;
     }
-    .qr-wrap img { width: 240px; height: 240px; display: block; }
-    .url-text {
-      font-size: 14px; color: var(--accent);
-      word-break: break-all; line-height: 1.6;
+    .qr-wrap img {
+      width: clamp(200px, 30vw, 520px); height: auto; aspect-ratio: 1 / 1;
+      display: block; image-rendering: pixelated;
+    }
+    .qr-caption {
+      font-size: 13px; color: var(--text-3); letter-spacing: 0.1em;
     }
     .theme-btn {
-      margin-top: 20px;
+      margin-top: clamp(8px, 1.4vw, 18px);
       background: var(--bg-input);
       border: 1px solid var(--border);
       border-radius: 999px;
       padding: 8px 16px;
+      font-family: inherit;
       font-size: 13px; color: var(--text-2);
-      cursor: pointer; transition: all 0.35s ease;
+      cursor: pointer;
+      transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
     }
-    .theme-btn:hover { background: rgba(255,255,255,0.10); }
+    .theme-btn:hover { background: var(--bg-hover); color: var(--text-1); }
+    .theme-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
     .theme-btn .icon-sun { display: none; }
     html[data-theme="light"] .theme-btn .icon-sun { display: inline; }
     html[data-theme="light"] .theme-btn .icon-moon { display: none; }
+    @media (max-width: 900px) {
+      .card { grid-template-columns: minmax(0, 1fr); max-width: 460px; }
+      .card-main { text-align: center; }
+      .steps, .url-box { text-align: left; }
+      .card-qr { order: 2; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="card">
-    <div class="icon-ring">
-      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+    <div class="card-main">
+      <div class="eyebrow">课堂入口 · 同一个 Wi-Fi</div>
+      <div class="title">用手机扫这个码</div>
+      <div class="desc">扫开就是拍照页，拍完结果会自动出现在电脑显示页和教室小屏上。</div>
+      <ol class="steps">
+        <li><span class="step-num">1</span>手机连上和这台电脑相同的 Wi-Fi</li>
+        <li><span class="step-num">2</span>用手机相机扫右边的二维码</li>
+        <li><span class="step-num">3</span>拍一张，等结果出来</li>
+      </ol>
+      <div class="url-box">
+        <span class="url-label">扫不出来时，在手机浏览器输入</span>
+        <div class="url-text">{{ qr_info.mobile_url }}</div>
+      </div>
+      <button class="theme-btn" id="themeBtn">
+        <span class="icon-moon">&#9790; 暗色</span>
+        <span class="icon-sun">&#9728; 亮色</span>
+      </button>
     </div>
-    <div class="title">手机扫码开始</div>
-    <div class="desc">手机和电脑连接同一 Wi-Fi 后，<br/>扫描下方二维码进入拍照页面。</div>
-    <div class="qr-wrap">
-      <img src="{{ qr_info.mobile_qr }}" alt="手机拍照页二维码" />
+
+    <div class="card-qr">
+      <div class="qr-wrap">
+        <img src="{{ qr_info.mobile_qr }}" alt="手机拍照页二维码" />
+      </div>
+      <div class="qr-caption">手机拍照页</div>
     </div>
-    <div class="url-text">{{ qr_info.mobile_url }}</div>
-    <button class="theme-btn" id="themeBtn">
-      <span class="icon-moon">&#9790; 暗色</span>
-      <span class="icon-sun">&#9728; 亮色</span>
-    </button>
   </div>
 
   <script>

@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>电脑显示页</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-base: #1E2024;
+      --bg-card: rgba(255,255,255,0.06);
+      --bg-input: rgba(255,255,255,0.04);
+      --bg-hover: rgba(255,255,255,0.10);
+      --text-1: #E8E5E1;
+      --text-2: #9A9792;
+      --text-3: #6F6B65;
+      --accent: #7BA3B8;
+      --accent-dim: rgba(123,163,184,0.20);
+      --accent-glow: rgba(123,163,184,0.35);
+      --success: #8ABFA0;
+      --error: #C8968E;
+      --border: rgba(255,255,255,0.06);
+      --shadow: 0 8px 32px rgba(0,0,0,0.25);
+      --shadow-float: 0 14px 40px rgba(0,0,0,0.30);
+      --radius: 16px;
+      --radius-sm: 12px;
+      --radius-xs: 10px;
+      --glass-blur: 20px;
+      /* ——— 投屏新增 token（dark 值） ——— */
+      --card-edge: rgba(255,255,255,0.10);
+      --hairline: rgba(255,255,255,0.07);
+      --chip: rgba(255,255,255,0.05);
+      --img-bg: #0E1013;
+      --on-accent: #12171A;
+      --accent-solid: #7BA3B8;
+      --focus: rgba(123,163,184,0.60);
+      --fs-hero: clamp(21px, 1.55vw, 28px);
+      --fs-action: clamp(16px, 1.05vw, 19px);
+      --fs-body: clamp(15px, 0.95vw, 17px);
+      --fs-meta: 13px;
+      --fs-label: 14px;
+    }
+    html[data-theme="light"] {
+      --bg-base: #F2F0ED;
+      --bg-card: rgba(255,255,255,0.60);
+      --bg-input: rgba(0,0,0,0.03);
+      --bg-hover: rgba(0,0,0,0.05);
+      --text-1: #3D3A36;
+      --text-2: #8A8580;
+      --text-3: #8F8A84;
+      --accent: #6B95A8;
+      --accent-dim: rgba(107,149,168,0.15);
+      --accent-glow: rgba(107,149,168,0.25);
+      --success: #6DA07C;
+      --error: #B07A72;
+      --border: rgba(0,0,0,0.07);
+      --shadow: 0 8px 32px rgba(0,0,0,0.06);
+      --shadow-float: 0 14px 40px rgba(0,0,0,0.10);
+      /* ——— 投屏新增 token（light 值） ——— */
+      --card-edge: rgba(255,255,255,0.95);
+      --hairline: rgba(0,0,0,0.07);
+      --chip: rgba(0,0,0,0.035);
+      --img-bg: #E6E3DF;
+      --on-accent: #FFFFFF;
+      --accent-solid: #4E7C90;
+      --focus: rgba(107,149,168,0.60);
+      --fs-hero: clamp(21px, 1.55vw, 28px);
+      --fs-action: clamp(16px, 1.05vw, 19px);
+      --fs-body: clamp(15px, 0.95vw, 17px);
+      --fs-meta: 13px;
+      --fs-label: 14px;
+    }
+    body {
+      background: var(--bg-base);
+      color: var(--text-1);
+      font-family: -apple-system, "SF Pro Display", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+      font-size: var(--fs-body);
+      min-height: 100vh;
+      transition: background 0.35s ease, color 0.35s ease;
+    }
+    .wrap {
+      max-width: clamp(1040px, 94vw, 1720px);
+      margin: 0 auto;
+      padding: 22px clamp(18px, 2.4vw, 44px) 44px;
+    }
+    /* Header */
+    .app-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 16px; margin-bottom: 10px;
+    }
+    .header-main { min-width: 0; }
+    .header-title {
+      font-size: clamp(20px, 1.5vw, 26px); font-weight: 700; letter-spacing: -0.3px;
+    }
+    .header-sub {
+      margin-top: 5px; font-size: var(--fs-meta); color: var(--text-3);
+      letter-spacing: 0.04em;
+    }
+    .header-actions { display: flex; gap: 8px; align-items: center; padding-top: 2px; }
+    .icon-btn {
+      width: 34px; height: 34px; border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--bg-input);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; opacity: 0.7;
+      transition: background 0.3s ease, opacity 0.3s ease, border-color 0.3s ease;
+    }
+    .icon-btn:hover { background: var(--bg-hover); opacity: 1; }
+    .icon-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+    .icon-btn svg { width: 16px; height: 16px; fill: var(--text-2); }
+    .icon-btn .icon-moon { display: none; }
+    html[data-theme="light"] .icon-btn .icon-sun { display: none; }
+    html[data-theme="light"] .icon-btn .icon-moon { display: block; }
+    /* Meta bar —— 投屏时退成一行静音信息，不再独占一个盒子 */
+    .meta-bar {
+      font-size: var(--fs-meta); color: var(--text-2); line-height: 1.6;
+      margin-bottom: 16px; letter-spacing: 0.02em;
+      font-variant-numeric: tabular-nums;
+      transition: color 0.35s ease;
+    }
+    /* Glass card —— 暗色下靠顶部边光分层，不堆阴影 */
+    .glass-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border: 1px solid var(--border);
+      border-top-color: var(--card-edge);
+      border-radius: var(--radius);
+      padding: 18px 20px 20px;
+      box-shadow: var(--shadow);
+      transition: background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
+    }
+    .card-head {
+      display: flex; align-items: baseline; justify-content: space-between;
+      gap: 12px; margin-bottom: 14px;
+    }
+    .card-title {
+      font-size: var(--fs-label); font-weight: 600;
+      letter-spacing: 0.12em; color: var(--text-2);
+    }
+    .card-hint {
+      font-size: var(--fs-meta); color: var(--accent);
+      letter-spacing: 0.02em; white-space: nowrap;
+    }
+    /* 推屏结果就地反馈：不让老师看见 Python 异常原文 */
+    .push-status {
+      margin-top: 12px; padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg-input);
+      font-size: var(--fs-meta); color: var(--text-2); line-height: 1.65;
+    }
+    .push-status.err {
+      border-color: rgba(200, 150, 142, 0.45);
+      background: rgba(200, 150, 142, 0.10);
+      color: var(--error);
+    }
+    .push-status.ok {
+      border-color: rgba(138, 191, 160, 0.40);
+      background: rgba(138, 191, 160, 0.08);
+      color: var(--success);
+    }
+    /* Two-column stage：左「原图 + 结论」，右「AI 结果 + 推屏」 */
+    .stage {
+      display: grid;
+      grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
+      gap: 16px; align-items: start;
+    }
+    .stage-left { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+    .stage-right { min-width: 0; }
+    /* Image preview */
+    .single-preview-card { max-width: none; margin: 0; }
+    .img-box img {
+      width: 100%; border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--img-bg); display: none;
+      object-fit: contain;
+    }
+    .original-box img { max-height: clamp(220px, 40vh, 520px); }
+    .empty-text {
+      color: var(--text-3); font-size: var(--fs-body); line-height: 1.75;
+      padding: 10px 0 2px;
+    }
+    .err-text {
+      color: var(--error); white-space: pre-wrap; line-height: 1.7;
+      font-size: var(--fs-body); padding: 6px 0;
+    }
+    /* Compare grid —— 4 张并排；「主图」标记与推屏按钮永远在卡内可见 */
+    .compare-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .compare-item {
+      position: relative;
+      display: flex; flex-wrap: wrap; align-items: center;
+      gap: 8px;
+      background: var(--bg-input);
+      border: 1px solid var(--hairline);
+      border-radius: var(--radius-sm);
+      padding: 10px;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+    }
+    /* 哪张是主图 —— 不用 JS 改字，靠 .selected 直接换标签 */
+    .compare-item::before {
+      content: "候选";
+      flex: 0 0 auto;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
+      color: var(--text-2);
+      background: var(--chip);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 3px 9px;
+    }
+    .compare-item.selected {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+      box-shadow: 0 0 0 2px var(--accent-dim);
+    }
+    .compare-item.selected::before {
+      content: "主图";
+      color: var(--on-accent);
+      background: var(--accent-solid);
+      border-color: transparent;
+    }
+    .compare-title {
+      flex: 1 1 auto; min-width: 0;
+      color: var(--text-3); font-weight: 500;
+      font-size: 12px; letter-spacing: 0.02em;
+      text-align: right;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      transition: color 0.3s ease;
+    }
+    .compare-item.selected .compare-title { color: var(--text-2); }
+    .compare-item img {
+      width: 100%; height: clamp(150px, 24vh, 280px);
+      object-fit: contain; border-radius: 8px;
+      border: 1px solid var(--border);
+      display: block; background: var(--img-bg);
+    }
+    .candidate-meta {
+      width: 100%; margin: 0; min-height: 1.4em;
+      color: var(--text-2); font-size: var(--fs-meta); line-height: 1.5;
+      font-variant-numeric: tabular-nums;
+    }
+    .candidate-btn {
+      width: 100%; margin-top: 2px;
+      border: 1px solid var(--border);
+      border-radius: 10px; padding: 11px 12px;
+      background: var(--chip); color: var(--text-1);
+      font-family: inherit; font-size: 15px; font-weight: 600;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+    }
+    .candidate-btn:hover:not(:disabled) {
+      background: var(--accent-solid); border-color: transparent; color: var(--on-accent);
+    }
+    .candidate-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+    .candidate-btn:disabled { opacity: 0.55; cursor: wait; }
+    .compare-item.selected .candidate-btn {
+      background: transparent; border-color: var(--accent); color: var(--accent);
+    }
+    .compare-item.selected .candidate-btn::before { content: "✓ "; }
+    .compare-item.selected .candidate-btn:hover:not(:disabled) {
+      background: var(--accent-solid); color: var(--on-accent);
+    }
+    /* Report —— 首屏只留一条结论 + 一个动作，其余折进「完整分析」 */
+    .report-grid {
+      display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px 18px; padding-top: 4px;
+    }
+    .report-row {
+      border-left: 2px solid var(--hairline);
+      padding-left: 11px;
+      transition: border-color 0.35s ease;
+    }
+    .report-label {
+      font-size: 12px; color: var(--text-3); font-weight: 600;
+      letter-spacing: 0.08em; display: block; margin-bottom: 4px;
+    }
+    .report-value { font-size: var(--fs-body); color: var(--text-2); line-height: 1.7; }
+    .hero-issue {
+      padding-bottom: 16px; border-bottom: 1px solid var(--hairline);
+    }
+    .hero-label {
+      font-size: var(--fs-label); font-weight: 600; color: var(--accent);
+      letter-spacing: 0.1em; margin-bottom: 8px;
+    }
+    .hero-issue .report-value {
+      font-size: var(--fs-hero); font-weight: 600; line-height: 1.5;
+      color: var(--text-1); letter-spacing: -0.01em;
+    }
+    .suggestion-box {
+      margin-top: 16px; padding: 14px 16px 16px;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent-glow);
+      border-radius: var(--radius-sm);
+      transition: background 0.35s ease, border-color 0.35s ease;
+    }
+    .suggestion-label {
+      font-size: 12px; color: var(--accent); font-weight: 600;
+      letter-spacing: 0.1em; margin-bottom: 6px;
+    }
+    .suggestion-text {
+      font-size: var(--fs-action); color: var(--text-1);
+      line-height: 1.65; font-weight: 500;
+    }
+    details.more { margin-top: 14px; border-top: 1px solid var(--hairline); }
+    details.more > summary {
+      list-style: none; cursor: pointer;
+      display: flex; align-items: center; gap: 10px;
+      padding: 13px 0;
+      font-size: var(--fs-meta); color: var(--text-2); letter-spacing: 0.06em;
+      transition: color 0.3s ease;
+    }
+    details.more > summary:hover { color: var(--text-1); }
+    details.more > summary::-webkit-details-marker { display: none; }
+    details.more > summary::after {
+      content: "展开"; margin-left: auto;
+      color: var(--accent); font-size: 13px; letter-spacing: 0.04em;
+    }
+    details.more[open] > summary { padding-bottom: 10px; }
+    details.more[open] > summary::after { content: "收起"; }
+    .effective-plan {
+      margin-top: 14px; padding-top: 12px;
+      border-top: 1px solid var(--hairline);
+      font-size: var(--fs-meta); color: var(--text-3); line-height: 1.7;
+      display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline;
+    }
+    .effective-plan .report-label { display: inline; margin: 0; }
+    .effective-plan .report-value { font-size: var(--fs-meta); color: var(--text-2); }
+    @media (max-width: 980px) {
+      .stage { grid-template-columns: minmax(0, 1fr); }
+    }
+    @media (max-width: 760px) {
+      .compare-grid { grid-template-columns: 1fr; }
+      .report-grid { grid-template-columns: 1fr; }
+      .hero-issue .report-value { font-size: 22px; }
+      .suggestion-text { font-size: 17px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+      }
+    }
+    /* ——— 浅色主题补丁：accent 当正文用（标签/提示/链接式按钮）时不到 4.5:1，压深一档 ——— */
+    html[data-theme="light"] .hero-label,
+    html[data-theme="light"] .suggestion-label,
+    html[data-theme="light"] .card-hint,
+    html[data-theme="light"] details.more > summary::after,
+    html[data-theme="light"] .compare-item.selected .candidate-btn { color: #3F6273; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-main">
+        <h1 class="header-title">AI 摄影指导</h1>
+        <div class="header-sub">课堂投屏 · 手机拍完，这里自动更新</div>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="themeToggle" title="切换主题">
+          <svg class="icon-sun" viewBox="0 0 24 24"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 000-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24"><path d="M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 01-4.4 2.26 5.403 5.403 0 01-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Meta -->
+    <div class="meta-bar" id="metaText">等待拍照上传...</div>
+
+    <main class="stage">
+      <!-- 左：原图 → 结论 -->
+      <div class="stage-left">
+        <section class="glass-card single-preview-card">
+          <div class="card-head"><h2 class="card-title">原图</h2></div>
+          <div class="img-box original-box">
+            <img id="previewImg" alt="最新拍摄图片" />
+          </div>
+          <div id="previewEmpty" class="empty-text">学生拍到第一张，这里就出现原图。</div>
+        </section>
+
+        <section class="glass-card">
+          <div class="card-head"><h2 class="card-title">诊断结论</h2></div>
+          <div id="errorBox" class="err-text" style="display:none;"></div>
+          <div id="emptyBox" class="empty-text">等待拍摄结果。照片处理完，结论会显示在这里。</div>
+
+          <div id="contentBox" style="display:none;">
+            <div class="hero-issue">
+              <div class="hero-label">最需要解决的一点</div>
+              <div class="report-value" id="composition_analysis">-</div>
+            </div>
+
+            <div class="suggestion-box">
+              <div class="suggestion-label">下一次这样调整</div>
+              <div class="suggestion-text" id="suggested_adjustment">-</div>
+            </div>
+
+            <details class="more">
+              <summary>完整分析 · 其余 6 项</summary>
+              <div class="report-grid">
+                <div class="report-row">
+                  <span class="report-label">画面概括</span>
+                  <span class="report-value" id="scene_summary">-</span>
+                </div>
+                <div class="report-row">
+                  <span class="report-label">人物位置分析</span>
+                  <span class="report-value" id="subject_position_analysis">-</span>
+                </div>
+                <div class="report-row">
+                  <span class="report-label">拍摄角度分析</span>
+                  <span class="report-value" id="camera_angle_analysis">-</span>
+                </div>
+                <div class="report-row">
+                  <span class="report-label">景别匹配分析</span>
+                  <span class="report-value" id="shot_size_analysis">-</span>
+                </div>
+                <div class="report-row">
+                  <span class="report-label">光照源推测</span>
+                  <span class="report-value" id="light_source_inference">-</span>
+                </div>
+                <div class="report-row">
+                  <span class="report-label">推荐拍摄位置</span>
+                  <span class="report-value" id="recommended_shooting_position">-</span>
+                </div>
+              </div>
+            </details>
+
+            <div class="effective-plan">
+              <span class="report-label">本次实际优化</span>
+              <span class="report-value" id="effective_plan">等待生成</span>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- 右：AI 结果对比 + 推屏 -->
+      <div class="stage-right">
+        <section class="glass-card">
+          <div class="card-head">
+            <h2 class="card-title">AI 生成结果</h2>
+            <span class="card-hint">点下方按钮推上小屏</span>
+          </div>
+          <div id="compareEmpty" class="empty-text">处理完成后，各模型的结果并排列在这里。想换一张推上教室小屏，点那张卡片下方的按钮。</div>
+          <div id="compareGrid" class="compare-grid" style="display:none;"></div>
+          <div id="pushStatus" class="push-status" style="display:none;"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const root = document.documentElement;
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      const isDark = root.getAttribute('data-theme') === 'dark';
+      root.setAttribute('data-theme', isDark ? 'light' : 'dark');
+      localStorage.setItem('pa-theme', isDark ? 'light' : 'dark');
+    });
+    const savedTheme = localStorage.getItem('pa-theme');
+    if (savedTheme) root.setAttribute('data-theme', savedTheme);
+
+    function setText(id, value) {
+      document.getElementById(id).textContent = value || "-";
+    }
+
+    function toDisplayUrl(url) {
+      if (!url) return "";
+      try {
+        const parsed = new URL(url, window.location.origin);
+        const isLocal = parsed.origin === window.location.origin &&
+          (parsed.pathname.startsWith("/uploads/") || parsed.pathname.startsWith("/static/"));
+        if (isLocal) {
+          parsed.searchParams.set("_t", String(Date.now()));
+          return parsed.toString();
+        }
+        return url;
+      } catch (e) {
+        return url;
+      }
+    }
+
+    let espScreenEnabled = true;
+    async function loadEspConfig() {
+      try {
+        const resp = await fetch("/api/esp_config");
+        const data = await resp.json();
+        if (resp.ok && data.ok) espScreenEnabled = data.esp_enabled !== false;
+      } catch (e) { /* 读取失败时按默认启用处理 */ }
+    }
+
+    // 推屏结果就地反馈：把后端异常翻成一句人能读的话
+    const pushStatus = document.getElementById("pushStatus");
+    function setPushStatus(text, kind) {
+      if (!pushStatus) return;
+      pushStatus.textContent = text || "";
+      pushStatus.className = "push-status" + (kind ? " " + kind : "");
+      pushStatus.style.display = text ? "block" : "none";
+    }
+    function friendlyPushError(raw) {
+      const msg = String(raw || "");
+      if (/timed out|timeout|Max retries|Connection|aborted|refused/i.test(msg)) {
+        return "小屏幕没有回应。确认它开着、并且和这台电脑连的是同一个 WiFi（屏幕 IP 在手机端设置里看）。";
+      }
+      if (msg.indexOf("ESP 推送已关闭") >= 0) return "小屏幕推送已关闭，去手机端设置里打开。";
+      if (/HTTP 400/.test(msg)) return "小屏幕拒收这张图：可能是它的存储不足或固件版本不匹配。";
+      if (/HTTP/.test(msg)) return "小屏幕拒绝了这次推送：" + msg.slice(0, 80);
+      return "推送没成功：" + msg.slice(0, 80);
+    }
+
+    async function chooseAndPushCandidate(item, card, button) {
+      const imageRef = (item && item.diagram_url || "").trim();
+      if (!imageRef) return;
+      try {
+        button.disabled = true;
+        button.textContent = "正在推送...";
+        setPushStatus("");
+        const response = await fetch("/api/push_latest_to_esp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image_ref: imageRef, include_all: false })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.ok) {
+          throw new Error(result.msg || "推送失败");
+        }
+        document.querySelectorAll(".compare-item").forEach((node) => node.classList.remove("selected"));
+        document.querySelectorAll(".candidate-btn").forEach((node) => {
+          node.textContent = "推送为屏幕主图";
+        });
+        card.classList.add("selected");
+        button.textContent = "已推送为屏幕主图";
+        setPushStatus("已推上小屏幕。", "ok");
+      } catch (error) {
+        button.textContent = "重试推送";
+        setPushStatus(friendlyPushError(error.message || error), "err");
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    function renderModelCandidates(data) {
+      const compareGrid = document.getElementById("compareGrid");
+      const compareEmpty = document.getElementById("compareEmpty");
+
+      let candidates = Array.isArray(data.model_candidates) ? data.model_candidates : [];
+      if (!candidates.length && data.diagram_url) {
+        candidates = [{ model: data.image_model || "AI结果", diagram_url: data.diagram_url }];
+      }
+      const displayCandidates = candidates
+        .filter((item) => item && item.diagram_url)
+        .slice(0, 4);
+
+      if (!displayCandidates.length) {
+        compareGrid.style.display = "none";
+        compareGrid.innerHTML = "";
+        compareEmpty.style.display = "block";
+        return;
+      }
+
+      compareGrid.innerHTML = "";
+      displayCandidates.forEach((item) => {
+        const model = item.model || "AI结果";
+        const imageUrl = item.diagram_url || "";
+        const isPrimary = imageUrl === data.diagram_url;
+
+        const card = document.createElement("div");
+        card.className = "compare-item" + (isPrimary ? " selected" : "");
+
+        const title = document.createElement("div");
+        title.className = "compare-title";
+        title.textContent = model + (isPrimary ? " · 系统首选" : "");
+        card.appendChild(title);
+
+        const image = document.createElement("img");
+        image.src = toDisplayUrl(imageUrl);
+        image.alt = model;
+        image.loading = "lazy";
+        card.appendChild(image);
+
+        const meta = document.createElement("div");
+        meta.className = "candidate-meta";
+        const score = Number(item.quality_score);
+        meta.textContent = Number.isFinite(score) && score > -900
+          ? `本地技术评分：${score.toFixed(2)}`
+          : "由用户观察人物一致性和目标完成度";
+        card.appendChild(meta);
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "candidate-btn";
+        if (!espScreenEnabled) {
+          button.disabled = true;
+          button.textContent = "小屏幕已关闭（设置中开启）";
+        } else {
+          button.textContent = isPrimary ? "当前屏幕主图（可重推）" : "推送为屏幕主图";
+          button.addEventListener("click", () => chooseAndPushCandidate(item, card, button));
+        }
+        card.appendChild(button);
+
+        compareGrid.appendChild(card);
+      });
+
+      compareGrid.style.display = "grid";
+      compareEmpty.style.display = "none";
+    }
+
+    async function loadLatest() {
+      try {
+        const resp = await fetch("/api/latest_result?t=" + Date.now());
+        const data = await resp.json();
+        if (!resp.ok) return;
+
+        document.getElementById("metaText").textContent =
+          `最近更新：${data.time || "--"}    阶段：${data.stage || "--"}    视觉模型：${data.vision_model || "--"}    生图模型：${data.image_model || "--"}`;
+
+        renderModelCandidates(data);
+
+        const previewImg = document.getElementById("previewImg");
+        const previewEmpty = document.getElementById("previewEmpty");
+        const errorBox = document.getElementById("errorBox");
+        const emptyBox = document.getElementById("emptyBox");
+        const contentBox = document.getElementById("contentBox");
+
+        if (!data.ok) {
+          errorBox.style.display = "block";
+          errorBox.textContent = data.error || data.msg || "处理失败";
+          emptyBox.style.display = "none";
+          contentBox.style.display = "none";
+          return;
+        }
+
+        errorBox.style.display = "none";
+        emptyBox.style.display = "none";
+        contentBox.style.display = "block";
+
+        if (data.preview_url) {
+          previewImg.src = data.preview_url + "?t=" + Date.now();
+          previewImg.style.display = "block";
+          previewEmpty.style.display = "none";
+        } else {
+          previewImg.style.display = "none";
+          previewEmpty.style.display = "block";
+        }
+
+        const ai = data.ai_result || {};
+        setText("scene_summary", ai.scene_summary);
+        setText("subject_position_analysis", ai.subject_position_analysis);
+        setText("camera_angle_analysis", ai.camera_angle_analysis);
+        setText("shot_size_analysis", ai.shot_size_analysis);
+        setText("composition_analysis", ai.composition_analysis);
+        setText("light_source_inference", ai.light_source_inference);
+        setText("recommended_shooting_position", ai.recommended_shooting_position);
+        setText("suggested_adjustment", ai.suggested_adjustment);
+        const strategy = data.strategy_plan || {};
+        const effectiveParts = [
+          strategy.effective_goal_label,
+          strategy.shot_type_label,
+          strategy.mood_style_label,
+          strategy.output_ratio_label,
+          strategy.edit_strength_label
+        ].filter(Boolean);
+        setText("effective_plan", effectiveParts.length ? effectiveParts.join(" / ") : "等待生成");
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    loadEspConfig();
+    loadLatest();
+    setInterval(loadLatest, 2500);
+  </script>
+</body>
+</html>

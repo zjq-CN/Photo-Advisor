@@ -1,0 +1,762 @@
+{
+ "GET /": {
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "len": 68286,
+  "sha256": "67a6042d2bef8207c4c00e2945e8f3e78d48c0d68f2c646654ff8512dd69bd57"
+ },
+ "GET /mobile": {
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "len": 68286,
+  "sha256": "67a6042d2bef8207c4c00e2945e8f3e78d48c0d68f2c646654ff8512dd69bd57"
+ },
+ "GET /display": {
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "len": 27843,
+  "sha256": "ffbf831a6ce5e804b577b0307831d2342c99acb9eca143286eec850dd1a6ea02"
+ },
+ "GET /qrcode": {
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "len": 7724,
+  "sha256": "3c70339811ac33a1d0d39686886f740ff86ea1f4cdadc38fa0d943bdad5c32bd"
+ },
+ "GET /static/latest_result.json": {
+  "status": 200,
+  "content_type": "application/json",
+  "len": 16782,
+  "key_tree": {
+   "ai_result": {
+    "camera_angle_analysis": "__v__",
+    "composition_analysis": "__v__",
+    "expression_hint": "__v__",
+    "ideal_image_prompt": "__v__",
+    "light_source_inference": "__v__",
+    "recommended_shooting_position": "__v__",
+    "scene_summary": "__v__",
+    "shot_size_analysis": "__v__",
+    "subject_gender": "__v__",
+    "subject_position_analysis": "__v__",
+    "suggested_adjustment": "__v__"
+   },
+   "beauty_applied": "__v__",
+   "beauty_enabled": "__v__",
+   "diagnosis_report": {
+    "camera_angle_analysis": "__v__",
+    "composition_analysis": "__v__",
+    "ideal_image_prompt": "__v__",
+    "light_source_inference": "__v__",
+    "main_issue": "__v__",
+    "recommended_shooting_position": "__v__",
+    "scene_summary": "__v__",
+    "shot_size_analysis": "__v__",
+    "subject_gender": "__v__",
+    "subject_position_analysis": "__v__",
+    "suggested_adjustment": "__v__"
+   },
+   "diagram_error": "__v__",
+   "diagram_url": "__v__",
+   "edit_prompt": "__v__",
+   "esp_push_count": "__v__",
+   "esp_push_msg": "__v__",
+   "esp_push_ok": "__v__",
+   "esp_push_total": "__v__",
+   "esp_pushed_image": "__v__",
+   "filename": "__v__",
+   "generation_settings": {
+    "dashscope_size": "__v__",
+    "doubao_size": "__v__",
+    "edit_strength": "__v__",
+    "expected_ratio": "__v__",
+    "output_ratio": "__v__",
+    "output_ratio_label": "__v__"
+   },
+   "image_model": "__v__",
+   "model_candidates": {
+    "__list_len__": 3,
+    "__item0__": {
+     "beauty_applied": "__v__",
+     "diagram_url": "__v__",
+     "error": "__v__",
+     "model": "__v__",
+     "quality_reason": "__v__",
+     "quality_score": "__v__",
+     "raw_diagram_url": "__v__"
+    }
+   },
+   "ok": "__v__",
+   "preview_url": "__v__",
+   "raw_diagram_url": "__v__",
+   "session_id": "__v__",
+   "stage": "__v__",
+   "strategy_plan": {
+    "camera_angle": "__v__",
+    "camera_height": "__v__",
+    "color_strategy": "__v__",
+    "composition_goal": "__v__",
+    "composition_methods": "__v__",
+    "depth_strategy": "__v__",
+    "edit_strength_label": "__v__",
+    "effective_goal": "__v__",
+    "effective_goal_label": "__v__",
+    "expression_hint": "__v__",
+    "eye_focus_strategy": "__v__",
+    "geometry_strategy": "__v__",
+    "lens_feel": "__v__",
+    "light_strategy": "__v__",
+    "mood_style_label": "__v__",
+    "negative_space_target": "__v__",
+    "optimization_goal_label": "__v__",
+    "output_ratio_label": "__v__",
+    "pose_strategy": "__v__",
+    "requested_goal": "__v__",
+    "shot_size_target": "__v__",
+    "shot_type_label": "__v__",
+    "strength_rule": "__v__",
+    "subject_position_target": "__v__",
+    "subject_ratio_target": "__v__"
+   },
+   "time": "__v__",
+   "user_intent": {
+    "edit_strength": "__v__",
+    "mood_style": "__v__",
+    "optimization_goal": "__v__",
+    "output_ratio": "__v__",
+    "shot_type": "__v__"
+   },
+   "vision_model": "__v__"
+  }
+ },
+ "GET /api/esp_config": {
+  "status": 200,
+  "content_type": "application/json",
+  "len": 112,
+  "key_tree": {
+   "esp_enabled": "__v__",
+   "esp_endpoint": "__v__",
+   "esp_ip": "__v__",
+   "esp_port": "__v__",
+   "esp_size": "__v__",
+   "ok": "__v__"
+  }
+ },
+ "POST /api/esp_config esp_enabled": {
+  "status": 200,
+  "content_type": "application/json",
+  "len": 182,
+  "key_tree": {
+   "esp_enabled": "__v__",
+   "esp_endpoint": "__v__",
+   "esp_ip": "__v__",
+   "esp_port": "__v__",
+   "esp_size": "__v__",
+   "msg": "__v__",
+   "ok": "__v__"
+  }
+ },
+ "POST /api/esp_config bad ip": {
+  "status": 400,
+  "content_type": "application/json",
+  "len": 101,
+  "key_tree": {
+   "msg": "__v__",
+   "ok": "__v__"
+  }
+ },
+ "POST /api/esp_config set ip": {
+  "status": 200,
+  "content_type": "application/json",
+  "len": 179,
+  "key_tree": {
+   "esp_enabled": "__v__",
+   "esp_endpoint": "__v__",
+   "esp_ip": "__v__",
+   "esp_port": "__v__",
+   "esp_size": "__v__",
+   "msg": "__v__",
+   "ok": "__v__"
+  }
+ },
+ "GET /api/esp_config after": {
+  "status": 200,
+  "content_type": "application/json",
+  "len": 112,
+  "key_tree": {
+   "esp_enabled": "__v__",
+   "esp_endpoint": "__v__",
+   "esp_ip": "__v__",
+   "esp_port": "__v__",
+   "esp_size": "__v__",
+   "ok": "__v__"
+  }
+ },
+ "POST /api/diagnose": {
+  "status": 200,
+  "content_type": "application/json",
+  "len": 1365,
+  "key_tree": {
+   "ai_result": {
+    "camera_angle_analysis": "__v__",
+    "composition_analysis": "__v__",
+    "ideal_image_prompt": "__v__",
+    "light_source_inference": "__v__",
+    "main_issue": "__v__",
+    "recommended_shooting_position": "__v__",
+    "scene_summary": "__v__",
+    "shot_size_analysis": "__v__",
+    "subject_gender": "__v__",
+    "subject_position_analysis": "__v__",
+    "suggested_adjustment": "__v__"
+   },
+   "diagnosis_elapsed": "__v__",
+   "diagnosis_report": {
+    "camera_angle_analysis": "__v__",
+    "composition_analysis": "__v__",
+    "ideal_image_prompt": "__v__",
+    "light_source_inference": "__v__",
+    "main_issue": "__v__",
+    "recommended_shooting_position": "__v__",
+    "scene_summary": "__v__",
+    "shot_size_analysis": "__v__",
+    "subject_gender": "__v__",
+    "subject_position_analysis": "__v__",
+    "suggested_adjustment": "__v__"
+   },
+   "esp_push_count": "__v__",
+   "esp_push_msg": "__v__",
+   "esp_push_ok": "__v__",
+   "esp_push_total": "__v__",
+   "esp_pushed_image": "__v__",
+   "filename": "__v__",
+   "msg": "__v__",
+   "ok": "__v__",
+   "preview_url": "__v__",
+   "session_id": "__v__",
+   "stage": "__v__",
+   "vision_mode": "__v__",
+   "vision_model": "__v__"
+  }
+ },
+ "POST /api/diagnose no photo": {
+  "status": 400,
+  "content_type": "application/json",
+  "len": 76,
+  "key_tree": {
+   "msg": "__v__",
+   "ok": "__v__"
+  }
+ },
+ "POST /api/generate compare": {
+  "status": 200,
+  "content_type": "application/json",
+  "len": 7559,
+  "key_tree": {
+   "ai_result": {
+    "camera_angle_analysis": "__v__",
+    "composition_analysis": "__v__",
+    "expression_hint": "__v__",
+    "ideal_image_prompt": "__v__",
+    "light_source_inference": "__v__",
+    "recommended_shooting_position": "__v__",
+    "scene_summary": "__v__",
+    "shot_size_analysis": "__v__",
+    "subject_gender": "__v__",
+    "subject_position_analysis": "__v__",
+    "suggested_adjustment": "__v__"
+   },
+   "beauty_applied": "__v__",
+   "beauty_enabled": "__v__",
+   "diagnosis_report": {
+    "camera_angle_analysis": "__v__",
+    "composition_analysis": "__v__",
+    "ideal_image_prompt": "__v__",
+    "light_source_inference": "__v__",
+    "main_issue": "__v__",
+    "recommended_shooting_position": "__v__",
+    "scene_summary": "__v__",
+    "shot_size_analysis": "__v__",
+    "subject_gender": "__v__",
+    "subject_position_analysis": "__v__",
+    "suggested_adjustment": "__v__"
+   },
+   "diagram_error": "__v__",
+   "diagram_url": "__v__",
+   "esp_push_count": "__v__",
+   "esp_push_msg": "__v__",
+   "esp_push_ok": "__v__",
+   "esp_push_total": "__v__",
+   "esp_pushed_image": "__v__",
+   "generation_settings": {
+    "dashscope_size": "__v__",
+    "doubao_size": "__v__",
+    "edit_strength": "__v__",
+    "expected_ratio": "__v__",
+    "output_ratio": "__v__",
+    "output_ratio_label": "__v__"
+   },
+   "image_model": "__v__",
+   "model_candidates": {
+    "__list_len__": 3,
+    "__item0__": {
+     "beauty_applied": "__v__",
+     "diagram_url": "__v__",
+     "error": "__v__",
+     "model": "__v__",
+     "quality_reason": "__v__",
+     "quality_score": "__v__",
+     "raw_diagram_url": "__v__"
+    }
+   },
+   "msg": "__v__",
+   "ok": "__v__",
+   "preview_url": "__v__",
+   "raw_diagram_url": "__v__",
+   "session_id": "__v__",
+   "stage": "__v__",
+   "strategy_plan": {
+    "camera_angle": "__v__",
+    "camera_height": "__v__",
+    "color_strategy": "__v__",
+    "composition_goal": "__v__",
+    "composition_methods": "__v__",
+    "depth_strategy": "__v__",
+    "edit_strength_label": "__v__",
+    "effective_goal": "__v__",
+    "effective_goal_label": "__v__",
+    "expression_hint": "__v__",
+    "eye_focus_strategy": "__v__",
+    "geometry_strategy": "__v__",
+    "lens_feel": "__v__",
+    "light_strategy": "__v__",
+    "mood_style_label": "__v__",
+    "negative_space_target": "__v__",
+    "optimization_goal_label": "__v__",
+    "output_ratio_label": "__v__",
+    "pose_strategy": "__v__",
+    "requested_goal": "__v__",
+    "shot_size_target": "__v__",
+    "shot_type_label": "__v__",
+    "strength_rule": "__v__",
+    "subject_position_target": "__v__",
+    "subject_ratio_target": "__v__"
+   },
+   "user_intent": {
+    "edit_strength": "__v__",
+    "mood_style": "__v__",
+    "optimization_goal": "__v__",
+    "output_ratio": "__v__",
+    "shot_type": "__v__"
+   },
+   "vision_model": "__v__"
+  }
+ },
+ "POST /api/generate single": {
+  "status": 200,
+  "content_type": "application/json",
+  "len": 7103,
+  "key_tree": {
+   "ai_result": {
+    "camera_angle_analysis": "__v__",
+    "composition_analysis": "__v__",
+    "expression_hint": "__v__",
+    "ideal_image_prompt": "__v__",
+    "light_source_inference": "__v__",
+    "recommended_shooting_position": "__v__",
+    "scene_summary": "__v__",
+    "shot_size_analysis": "__v__",
+    "subject_gender": "__v__",
+    "subject_position_analysis": "__v__",
+    "suggested_adjustment": "__v__"
+   },
+   "beauty_applied": "__v__",
+   "beauty_enabled": "__v__",
+   "diagnosis_report": {
+    "camera_angle_analysis": "__v__",
+    "composition_analysis": "__v__",
+    "ideal_image_prompt": "__v__",
+    "light_source_inference": "__v__",
+    "main_issue": "__v__",
+    "recommended_shooting_position": "__v__",
+    "scene_summary": "__v__",
+    "shot_size_analysis": "__v__",
+    "subject_gender": "__v__",
+    "subject_position_analysis": "__v__",
+    "suggested_adjustment": "__v__"
+   },
+   "diagram_error": "__v__",
+   "diagram_url": "__v__",
+   "esp_push_count": "__v__",
+   "esp_push_msg": "__v__",
+   "esp_push_ok": "__v__",
+   "esp_push_total": "__v__",
+   "esp_pushed_image": "__v__",
+   "generation_settings": {
+    "dashscope_size": "__v__",
+    "doubao_size": "__v__",
+    "edit_strength": "__v__",
+    "expected_ratio": "__v__",
+    "output_ratio": "__v__",
+    "output_ratio_label": "__v__"
+   },
+   "image_model": "__v__",
+   "model_candidates": {
+    "__list_len__": 1,
+    "__item0__": {
+     "beauty_applied": "__v__",
+     "diagram_url": "__v__",
+     "error": "__v__",
+     "model": "__v__",
+     "raw_diagram_url": "__v__"
+    }
+   },
+   "msg": "__v__",
+   "ok": "__v__",
+   "preview_url": "__v__",
+   "raw_diagram_url": "__v__",
+   "session_id": "__v__",
+   "stage": "__v__",
+   "strategy_plan": {
+    "camera_angle": "__v__",
+    "camera_height": "__v__",
+    "color_strategy": "__v__",
+    "composition_goal": "__v__",
+    "composition_methods": "__v__",
+    "depth_strategy": "__v__",
+    "edit_strength_label": "__v__",
+    "effective_goal": "__v__",
+    "effective_goal_label": "__v__",
+    "expression_hint": "__v__",
+    "eye_focus_strategy": "__v__",
+    "geometry_strategy": "__v__",
+    "lens_feel": "__v__",
+    "light_strategy": "__v__",
+    "mood_style_label": "__v__",
+    "negative_space_target": "__v__",
+    "optimization_goal_label": "__v__",
+    "output_ratio_label": "__v__",
+    "pose_strategy": "__v__",
+    "requested_goal": "__v__",
+    "shot_size_target": "__v__",
+    "shot_type_label": "__v__",
+    "strength_rule": "__v__",
+    "subject_position_target": "__v__",
+    "subject_ratio_target": "__v__"
+   },
+   "user_intent": {
+    "edit_strength": "__v__",
+    "mood_style": "__v__",
+    "optimization_goal": "__v__",
+    "output_ratio": "__v__",
+    "shot_type": "__v__"
+   },
+   "vision_model": "__v__"
+  }
+ },
+ "POST /api/generate unconfirmed": {
+  "status": 400,
+  "content_type": "application/json",
+  "len": 160,
+  "key_tree": {
+   "msg": "__v__",
+   "ok": "__v__"
+  }
+ },
+ "POST /api/push_latest_to_esp fallback": {
+  "status": 200,
+  "content_type": "application/json",
+  "len": 124,
+  "key_tree": {
+   "image_ref": "__v__",
+   "msg": "__v__",
+   "ok": "__v__",
+   "push_count": "__v__",
+   "push_total": "__v__"
+  }
+ },
+ "POST /api/push_latest_to_esp reject foreign": {
+  "status": 400,
+  "content_type": "application/json",
+  "len": 112,
+  "key_tree": {
+   "msg": "__v__",
+   "ok": "__v__"
+  }
+ },
+ "POST /api/generate fail-probe": {
+  "status": 200,
+  "content_type": "application/json",
+  "len": 7618,
+  "key_tree": {
+   "ai_result": {
+    "camera_angle_analysis": "__v__",
+    "composition_analysis": "__v__",
+    "expression_hint": "__v__",
+    "ideal_image_prompt": "__v__",
+    "light_source_inference": "__v__",
+    "recommended_shooting_position": "__v__",
+    "scene_summary": "__v__",
+    "shot_size_analysis": "__v__",
+    "subject_gender": "__v__",
+    "subject_position_analysis": "__v__",
+    "suggested_adjustment": "__v__"
+   },
+   "beauty_applied": "__v__",
+   "beauty_enabled": "__v__",
+   "diagnosis_report": {
+    "camera_angle_analysis": "__v__",
+    "composition_analysis": "__v__",
+    "ideal_image_prompt": "__v__",
+    "light_source_inference": "__v__",
+    "main_issue": "__v__",
+    "recommended_shooting_position": "__v__",
+    "scene_summary": "__v__",
+    "shot_size_analysis": "__v__",
+    "subject_gender": "__v__",
+    "subject_position_analysis": "__v__",
+    "suggested_adjustment": "__v__"
+   },
+   "diagram_error": "__v__",
+   "diagram_url": "__v__",
+   "esp_push_count": "__v__",
+   "esp_push_msg": "__v__",
+   "esp_push_ok": "__v__",
+   "esp_push_total": "__v__",
+   "esp_pushed_image": "__v__",
+   "generation_settings": {
+    "dashscope_size": "__v__",
+    "doubao_size": "__v__",
+    "edit_strength": "__v__",
+    "expected_ratio": "__v__",
+    "output_ratio": "__v__",
+    "output_ratio_label": "__v__"
+   },
+   "image_model": "__v__",
+   "model_candidates": {
+    "__list_len__": 3,
+    "__item0__": {
+     "beauty_applied": "__v__",
+     "diagram_url": "__v__",
+     "error": "__v__",
+     "model": "__v__",
+     "quality_reason": "__v__",
+     "quality_score": "__v__",
+     "raw_diagram_url": "__v__"
+    }
+   },
+   "msg": "__v__",
+   "ok": "__v__",
+   "preview_url": "__v__",
+   "raw_diagram_url": "__v__",
+   "session_id": "__v__",
+   "stage": "__v__",
+   "strategy_plan": {
+    "camera_angle": "__v__",
+    "camera_height": "__v__",
+    "color_strategy": "__v__",
+    "composition_goal": "__v__",
+    "composition_methods": "__v__",
+    "depth_strategy": "__v__",
+    "edit_strength_label": "__v__",
+    "effective_goal": "__v__",
+    "effective_goal_label": "__v__",
+    "expression_hint": "__v__",
+    "eye_focus_strategy": "__v__",
+    "geometry_strategy": "__v__",
+    "lens_feel": "__v__",
+    "light_strategy": "__v__",
+    "mood_style_label": "__v__",
+    "negative_space_target": "__v__",
+    "optimization_goal_label": "__v__",
+    "output_ratio_label": "__v__",
+    "pose_strategy": "__v__",
+    "requested_goal": "__v__",
+    "shot_size_target": "__v__",
+    "shot_type_label": "__v__",
+    "strength_rule": "__v__",
+    "subject_position_target": "__v__",
+    "subject_ratio_target": "__v__"
+   },
+   "user_intent": {
+    "edit_strength": "__v__",
+    "mood_style": "__v__",
+    "optimization_goal": "__v__",
+    "output_ratio": "__v__",
+    "shot_type": "__v__"
+   },
+   "vision_model": "__v__"
+  }
+ },
+ "POST /api/push_latest_to_esp fail-probe": {
+  "status": 200,
+  "content_type": "application/json",
+  "len": 131,
+  "key_tree": {
+   "image_ref": "__v__",
+   "msg": "__v__",
+   "ok": "__v__",
+   "push_count": "__v__",
+   "push_total": "__v__"
+  }
+ },
+ "GET /api/latest_result": {
+  "status": 200,
+  "content_type": "application/json",
+  "len": 13873,
+  "key_tree": {
+   "ai_result": {
+    "camera_angle_analysis": "__v__",
+    "composition_analysis": "__v__",
+    "expression_hint": "__v__",
+    "ideal_image_prompt": "__v__",
+    "light_source_inference": "__v__",
+    "recommended_shooting_position": "__v__",
+    "scene_summary": "__v__",
+    "shot_size_analysis": "__v__",
+    "subject_gender": "__v__",
+    "subject_position_analysis": "__v__",
+    "suggested_adjustment": "__v__"
+   },
+   "beauty_applied": "__v__",
+   "beauty_enabled": "__v__",
+   "diagnosis_report": {
+    "camera_angle_analysis": "__v__",
+    "composition_analysis": "__v__",
+    "ideal_image_prompt": "__v__",
+    "light_source_inference": "__v__",
+    "main_issue": "__v__",
+    "recommended_shooting_position": "__v__",
+    "scene_summary": "__v__",
+    "shot_size_analysis": "__v__",
+    "subject_gender": "__v__",
+    "subject_position_analysis": "__v__",
+    "suggested_adjustment": "__v__"
+   },
+   "diagram_error": "__v__",
+   "diagram_url": "__v__",
+   "edit_prompt": "__v__",
+   "esp_push_count": "__v__",
+   "esp_push_msg": "__v__",
+   "esp_push_ok": "__v__",
+   "esp_push_total": "__v__",
+   "esp_pushed_image": "__v__",
+   "filename": "__v__",
+   "generation_settings": {
+    "dashscope_size": "__v__",
+    "doubao_size": "__v__",
+    "edit_strength": "__v__",
+    "expected_ratio": "__v__",
+    "output_ratio": "__v__",
+    "output_ratio_label": "__v__"
+   },
+   "image_model": "__v__",
+   "model_candidates": {
+    "__list_len__": 3,
+    "__item0__": {
+     "beauty_applied": "__v__",
+     "diagram_url": "__v__",
+     "error": "__v__",
+     "model": "__v__",
+     "quality_reason": "__v__",
+     "quality_score": "__v__",
+     "raw_diagram_url": "__v__"
+    }
+   },
+   "ok": "__v__",
+   "preview_url": "__v__",
+   "raw_diagram_url": "__v__",
+   "session_id": "__v__",
+   "stage": "__v__",
+   "strategy_plan": {
+    "camera_angle": "__v__",
+    "camera_height": "__v__",
+    "color_strategy": "__v__",
+    "composition_goal": "__v__",
+    "composition_methods": "__v__",
+    "depth_strategy": "__v__",
+    "edit_strength_label": "__v__",
+    "effective_goal": "__v__",
+    "effective_goal_label": "__v__",
+    "expression_hint": "__v__",
+    "eye_focus_strategy": "__v__",
+    "geometry_strategy": "__v__",
+    "lens_feel": "__v__",
+    "light_strategy": "__v__",
+    "mood_style_label": "__v__",
+    "negative_space_target": "__v__",
+    "optimization_goal_label": "__v__",
+    "output_ratio_label": "__v__",
+    "pose_strategy": "__v__",
+    "requested_goal": "__v__",
+    "shot_size_target": "__v__",
+    "shot_type_label": "__v__",
+    "strength_rule": "__v__",
+    "subject_position_target": "__v__",
+    "subject_ratio_target": "__v__"
+   },
+   "time": "__v__",
+   "user_intent": {
+    "edit_strength": "__v__",
+    "mood_style": "__v__",
+    "optimization_goal": "__v__",
+    "output_ratio": "__v__",
+    "shot_type": "__v__"
+   },
+   "vision_model": "__v__"
+  }
+ },
+ "GET /uploads/fixture.jpg": {
+  "status": 200,
+  "content_type": "image/jpeg",
+  "len": 1706334,
+  "sha256": "eee98254d1f5422cb087bbedaac005ddf041a94d93b25966eed8f30c3aec1fd3"
+ },
+ "POST /upload": {
+  "status": 200,
+  "content_type": "application/json",
+  "len": 1365,
+  "key_tree": {
+   "ai_result": {
+    "camera_angle_analysis": "__v__",
+    "composition_analysis": "__v__",
+    "ideal_image_prompt": "__v__",
+    "light_source_inference": "__v__",
+    "main_issue": "__v__",
+    "recommended_shooting_position": "__v__",
+    "scene_summary": "__v__",
+    "shot_size_analysis": "__v__",
+    "subject_gender": "__v__",
+    "subject_position_analysis": "__v__",
+    "suggested_adjustment": "__v__"
+   },
+   "diagnosis_elapsed": "__v__",
+   "diagnosis_report": {
+    "camera_angle_analysis": "__v__",
+    "composition_analysis": "__v__",
+    "ideal_image_prompt": "__v__",
+    "light_source_inference": "__v__",
+    "main_issue": "__v__",
+    "recommended_shooting_position": "__v__",
+    "scene_summary": "__v__",
+    "shot_size_analysis": "__v__",
+    "subject_gender": "__v__",
+    "subject_position_analysis": "__v__",
+    "suggested_adjustment": "__v__"
+   },
+   "esp_push_count": "__v__",
+   "esp_push_msg": "__v__",
+   "esp_push_ok": "__v__",
+   "esp_push_total": "__v__",
+   "esp_pushed_image": "__v__",
+   "filename": "__v__",
+   "msg": "__v__",
+   "ok": "__v__",
+   "preview_url": "__v__",
+   "session_id": "__v__",
+   "stage": "__v__",
+   "vision_mode": "__v__",
+   "vision_model": "__v__"
+  }
+ }
+}

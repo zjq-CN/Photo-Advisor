@@ -53,3 +53,13 @@ static/qr_display.png
 屏幕端压缩包.zip
 
 tests/structure_test_images/
+
+# 重构过程快照与产物（本地回滚/取证用，不入库）
+legacy/phase1/
+legacy/phase2_snapshot/
+legacy/phase3_baseline/
+legacy/phase3_snapshot/
+tests/phase1_new/
+tests/phase2_new/
+tests/baseline2/
+tests/baseline/sandbox/tests/phase3_new/

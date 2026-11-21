@@ -1,0 +1,11 @@
+{
+ "esp_config_after": {
+  "esp_enabled": true,
+  "esp_endpoint": "/img",
+  "esp_ip": "192.168.4.10",
+  "esp_port": 80,
+  "esp_size": "320x240",
+  "ok": true
+ },
+ "diagnose_session_id": "20261115000514_df0ef8"
+}

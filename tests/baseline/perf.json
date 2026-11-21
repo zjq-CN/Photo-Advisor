@@ -1,0 +1,13 @@
+{
+ "esp_config_x20_ms": 19527.7,
+ "normal_request": {
+  "open_calls": 7,
+  "api_key_opens": 7,
+  "subprocess_calls": 5
+ },
+ "worst_case_request": {
+  "open_calls": 7,
+  "api_key_opens": 7,
+  "subprocess_calls": 7
+ }
+}

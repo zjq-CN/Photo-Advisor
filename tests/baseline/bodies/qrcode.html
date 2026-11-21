@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>扫码进入</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-base: #1E2024;
+      --bg-card: rgba(255,255,255,0.06);
+      --bg-input: rgba(255,255,255,0.04);
+      --text-1: #E8E5E1;
+      --text-2: #9A9792;
+      --text-3: #5A5752;
+      --accent: #7BA3B8;
+      --accent-dim: rgba(123,163,184,0.20);
+      --border: rgba(255,255,255,0.06);
+      --shadow: 0 8px 32px rgba(0,0,0,0.25);
+      --radius: 16px;
+      --radius-sm: 12px;
+      --glass-blur: 20px;
+      /* ——— 投屏新增 token（dark 值） ——— */
+      --bg-hover: rgba(255,255,255,0.10);
+      --card-edge: rgba(255,255,255,0.10);
+      --hairline: rgba(255,255,255,0.07);
+      --chip: rgba(255,255,255,0.05);
+      --focus: rgba(123,163,184,0.60);
+      --qr-plate: #FFFFFF;
+    }
+    html[data-theme="light"] {
+      --bg-base: #F2F0ED;
+      --bg-card: rgba(255,255,255,0.60);
+      --bg-input: rgba(0,0,0,0.03);
+      --text-1: #3D3A36;
+      --text-2: #8A8580;
+      --text-3: #B5B0AA;
+      --accent: #6B95A8;
+      --accent-dim: rgba(107,149,168,0.15);
+      --border: rgba(0,0,0,0.07);
+      --shadow: 0 8px 32px rgba(0,0,0,0.06);
+      /* ——— 投屏新增 token（light 值） ——— */
+      --bg-hover: rgba(0,0,0,0.05);
+      --card-edge: rgba(255,255,255,0.95);
+      --hairline: rgba(0,0,0,0.07);
+      --chip: rgba(0,0,0,0.035);
+      --focus: rgba(107,149,168,0.60);
+      --qr-plate: #FFFFFF;
+    }
+    body {
+      background: var(--bg-base);
+      color: var(--text-1);
+      font-family: -apple-system, "SF Pro Display", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: clamp(16px, 3vh, 40px) clamp(16px, 3vw, 48px);
+      transition: background 0.35s ease, color 0.35s ease;
+    }
+    /* 一块板：左边讲怎么用，右边就是那个码 */
+    .card {
+      background: var(--bg-card);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border: 1px solid var(--border);
+      border-top-color: var(--card-edge);
+      border-radius: var(--radius);
+      padding: clamp(22px, 3vw, 46px);
+      box-shadow: var(--shadow);
+      width: 100%;
+      max-width: clamp(560px, 88vw, 1320px);
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: clamp(20px, 3.2vw, 56px);
+      align-items: center;
+      transition: background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
+    }
+    .card-main { min-width: 0; text-align: left; }
+    .eyebrow {
+      font-size: 13px; font-weight: 600; color: var(--accent);
+      letter-spacing: 0.16em; margin-bottom: 14px;
+    }
+    .title {
+      font-size: clamp(26px, 2.2vw, 40px); font-weight: 700;
+      letter-spacing: -0.4px; line-height: 1.25; margin-bottom: 12px;
+    }
+    .desc {
+      font-size: clamp(16px, 1.15vw, 20px); color: var(--text-2);
+      line-height: 1.7; margin-bottom: clamp(16px, 2vw, 26px);
+    }
+    .steps { list-style: none; margin-bottom: clamp(16px, 2vw, 26px); }
+    .steps li {
+      display: flex; align-items: baseline; gap: 12px;
+      font-size: clamp(16px, 1.1vw, 19px); color: var(--text-1);
+      line-height: 1.6; padding: 7px 0;
+    }
+    .steps li + li { border-top: 1px solid var(--hairline); }
+    .step-num {
+      flex: 0 0 auto;
+      font-size: 13px; font-weight: 700; color: var(--text-2);
+      font-variant-numeric: tabular-nums;
+      background: var(--chip); border: 1px solid var(--border);
+      border-radius: 999px; padding: 2px 9px;
+      transform: translateY(-1px);
+    }
+    .url-box {
+      border-top: 1px solid var(--hairline);
+      padding-top: 14px; margin-bottom: clamp(14px, 1.6vw, 22px);
+    }
+    .url-label {
+      display: block; font-size: 12px; color: var(--text-3);
+      letter-spacing: 0.08em; margin-bottom: 6px;
+    }
+    .url-text {
+      font-size: clamp(16px, 1.05vw, 19px); color: var(--accent);
+      word-break: break-all; line-height: 1.55; font-weight: 500;
+      font-variant-numeric: tabular-nums;
+    }
+    /* 码：白板 + 像素化，投到大屏也不糊 */
+    .card-qr { text-align: center; }
+    .qr-wrap {
+      display: inline-block;
+      background: var(--qr-plate);
+      border: 1px solid var(--hairline);
+      border-radius: var(--radius-sm);
+      padding: clamp(10px, 1.1vw, 18px);
+      margin-bottom: 14px;
+    }
+    .qr-wrap img {
+      width: clamp(200px, 30vw, 520px); height: auto; aspect-ratio: 1 / 1;
+      display: block; image-rendering: pixelated;
+    }
+    .qr-caption {
+      font-size: 13px; color: var(--text-3); letter-spacing: 0.1em;
+    }
+    .theme-btn {
+      margin-top: clamp(8px, 1.4vw, 18px);
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 8px 16px;
+      font-family: inherit;
+      font-size: 13px; color: var(--text-2);
+      cursor: pointer;
+      transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+    }
+    .theme-btn:hover { background: var(--bg-hover); color: var(--text-1); }
+    .theme-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+    .theme-btn .icon-sun { display: none; }
+    html[data-theme="light"] .theme-btn .icon-sun { display: inline; }
+    html[data-theme="light"] .theme-btn .icon-moon { display: none; }
+    @media (max-width: 900px) {
+      .card { grid-template-columns: minmax(0, 1fr); max-width: 460px; }
+      .card-main { text-align: center; }
+      .steps, .url-box { text-align: left; }
+      .card-qr { order: 2; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="card-main">
+      <div class="eyebrow">课堂入口 · 同一个 Wi-Fi</div>
+      <div class="title">用手机扫这个码</div>
+      <div class="desc">扫开就是拍照页，拍完结果会自动出现在电脑显示页和教室小屏上。</div>
+      <ol class="steps">
+        <li><span class="step-num">1</span>手机连上和这台电脑相同的 Wi-Fi</li>
+        <li><span class="step-num">2</span>用手机相机扫右边的二维码</li>
+        <li><span class="step-num">3</span>拍一张，等结果出来</li>
+      </ol>
+      <div class="url-box">
+        <span class="url-label">扫不出来时，在手机浏览器输入</span>
+        <div class="url-text">http://192.168.4.2:5000/mobile</div>
+      </div>
+      <button class="theme-btn" id="themeBtn">
+        <span class="icon-moon">&#9790; 暗色</span>
+        <span class="icon-sun">&#9728; 亮色</span>
+      </button>
+    </div>
+
+    <div class="card-qr">
+      <div class="qr-wrap">
+        <img src="/static/qr_mobile.png" alt="手机拍照页二维码" />
+      </div>
+      <div class="qr-caption">手机拍照页</div>
+    </div>
+  </div>
+
+  <script>
+    const root = document.documentElement;
+    const btn = document.getElementById('themeBtn');
+    btn.addEventListener('click', () => {
+      const isDark = root.getAttribute('data-theme') === 'dark';
+      root.setAttribute('data-theme', isDark ? 'light' : 'dark');
+      localStorage.setItem('pa-theme', isDark ? 'light' : 'dark');
+    });
+    const saved = localStorage.getItem('pa-theme');
+    if (saved) root.setAttribute('data-theme', saved);
+  </script>
+</body>
+</html>

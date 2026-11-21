@@ -1,0 +1,51 @@
+{
+ "label": "phase3_ep",
+ "startup_s": 38.9,
+ "reachable": true,
+ "all_200": true,
+ "bad": [],
+ "rows": [
+  {
+   "path": "/",
+   "status": 200,
+   "len": 68286,
+   "sha": "67a6042d2bef"
+  },
+  {
+   "path": "/mobile",
+   "status": 200,
+   "len": 68286,
+   "sha": "67a6042d2bef"
+  },
+  {
+   "path": "/display",
+   "status": 200,
+   "len": 27843,
+   "sha": "ffbf831a6ce5"
+  },
+  {
+   "path": "/qrcode",
+   "status": 200,
+   "len": 7722,
+   "sha": "4b4d8d5600f8"
+  },
+  {
+   "path": "/api/esp_config",
+   "status": 200,
+   "len": 137,
+   "sha": "59807b67d897"
+  },
+  {
+   "path": "/api/latest_result",
+   "status": 200,
+   "len": 27178,
+   "sha": "da8c7ba1220c"
+  },
+  {
+   "path": "/uploads/photo_20261114_193009_716673ba.jpg",
+   "status": 200,
+   "len": 1706334,
+   "sha": "eee98254d1f5"
+  }
+ ]
+}

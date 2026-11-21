@@ -13,7 +13,7 @@
       --bg-hover: rgba(255,255,255,0.10);
       --text-1: #E8E5E1;
       --text-2: #9A9792;
-      --text-3: #5A5752;
+      --text-3: #6F6B65;
       --accent: #7BA3B8;
       --accent-dim: rgba(123,163,184,0.20);
       --accent-glow: rgba(123,163,184,0.35);
@@ -28,6 +28,21 @@
       --glass-blur: 20px;
       --bar-h: 64px;
       --header-h: 52px;
+
+      /* — 层次：靠明度差与顶部边光，不靠不断堆阴影 — */
+      --bg-elev: rgba(255,255,255,0.085);
+      --card-edge: rgba(255,255,255,0.085);
+      --card-top-light: rgba(255,255,255,0.07);
+
+      /* — 字号层级：一屏最多 4 级 — */
+      --fs-verdict: 24px;
+      --fs-action: 17px;
+      --fs-body: 14px;
+      --fs-meta: 11px;
+
+      /* — 间距 — */
+      --space-block: 22px;
+      --space-row: 10px;
     }
     html[data-theme="light"] {
       --bg-base: #F2F0ED;
@@ -36,7 +51,7 @@
       --bg-hover: rgba(0,0,0,0.05);
       --text-1: #3D3A36;
       --text-2: #8A8580;
-      --text-3: #B5B0AA;
+      --text-3: #8F8A84;
       --accent: #6B95A8;
       --accent-dim: rgba(107,149,168,0.15);
       --accent-glow: rgba(107,149,168,0.25);
@@ -45,7 +60,24 @@
       --border: rgba(0,0,0,0.07);
       --shadow: 0 8px 32px rgba(0,0,0,0.06);
       --shadow-float: 0 14px 40px rgba(0,0,0,0.10);
+
+      --bg-elev: #FFFFFF;
+      --card-edge: rgba(0,0,0,0.075);
+      --card-top-light: rgba(255,255,255,0.95);
+
+      --fs-verdict: 24px;
+      --fs-action: 17px;
+      --fs-body: 14px;
+      --fs-meta: 11px;
+
+      --space-block: 22px;
+      --space-row: 10px;
     }
+    /* 浅色下 accent 太淡：填充按钮上的白字、选中 chip 上的 accent 字都不到 4.5:1，单独压深 */
+    html[data-theme="light"] .capture-btn,
+    html[data-theme="light"] .generate-btn,
+    html[data-theme="light"] .nav-btn.primary { background: #4E7C90; }
+    html[data-theme="light"] .chip.active { color: #3F6273; border-color: #6B95A8; }
     body {
       background: var(--bg-base);
       color: var(--text-1);
@@ -67,17 +99,19 @@
       z-index: 50;
       transition: background 0.35s ease, border-color 0.35s ease;
     }
-    .header-title { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; }
-    .header-actions { display: flex; gap: 6px; }
+    .header-title { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; color: var(--text-1); }
+    .header-actions { display: flex; gap: 2px; }
+    /* 主题切换 / 屏幕设置是二级动作：不描边、不占视觉重心，只是可点 */
     .icon-btn {
-      width: 36px; height: 36px; border-radius: 50%;
-      border: 1px solid var(--border);
-      background: var(--bg-input);
+      width: 34px; height: 34px; border-radius: 50%;
+      border: 1px solid transparent;
+      background: transparent;
       display: flex; align-items: center; justify-content: center;
-      cursor: pointer; transition: all 0.35s ease;
+      cursor: pointer; transition: background 0.25s ease, border-color 0.25s ease;
+      -webkit-tap-highlight-color: transparent;
     }
-    .icon-btn:hover { background: var(--bg-hover); transform: translateY(-1px); }
-    .icon-btn svg { width: 18px; height: 18px; fill: var(--text-2); }
+    .icon-btn:hover, .icon-btn:active { background: var(--bg-input); border-color: var(--border); }
+    .icon-btn svg { width: 17px; height: 17px; fill: var(--text-3); }
     .icon-btn .icon-moon { display: none; }
     html[data-theme="light"] .icon-btn .icon-sun { display: none; }
     html[data-theme="light"] .icon-btn .icon-moon { display: block; }
@@ -135,6 +169,7 @@
       padding: 10px 20px; border-radius: var(--radius-sm);
       border: none; font-size: 14px; font-weight: 600;
       cursor: pointer; transition: all 0.25s ease;
+      white-space: nowrap;
     }
     .nav-btn:disabled { opacity: 0.3; cursor: default; transform: none; }
     .nav-btn.secondary {
@@ -149,158 +184,271 @@
     .nav-btn:active:not(:disabled) { transform: translateY(0); }
     .nav-spacer { width: 80px; }
 
-    /* — Glass card — */
-    .glass-card {
-      background: var(--bg-card);
-      backdrop-filter: blur(var(--glass-blur));
-      -webkit-backdrop-filter: blur(var(--glass-blur));
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 20px 18px;
-      box-shadow: var(--shadow);
-      margin-bottom: 16px;
-      transition: background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
-    }
-    .card-title { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; margin-bottom: 4px; }
-    .card-subtitle { font-size: 13px; color: var(--text-2); line-height: 1.6; }
-
     /* — Step 1: 拍照 — */
-    .step-hero { text-align: center; padding-top: 36px; }
+    .step-hero { text-align: center; padding-top: 44px; }
     .step-hero .icon-large {
-      width: 80px; height: 80px; border-radius: 50%;
+      width: 60px; height: 60px; border-radius: 50%;
       background: var(--accent-dim);
       display: flex; align-items: center; justify-content: center;
-      margin: 0 auto 20px;
+      margin: 0 auto 22px;
     }
-    .step-hero .icon-large svg { width: 36px; height: 36px; fill: var(--accent); }
-    .step-hero h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
-    .step-hero p { font-size: 14px; color: var(--text-2); margin-bottom: 28px; line-height: 1.6; }
+    .step-hero .icon-large svg { width: 26px; height: 26px; fill: var(--accent); }
+    .step-hero h2 { font-size: 24px; font-weight: 700; letter-spacing: -0.4px; margin-bottom: 8px; line-height: 1.3; }
+    .step-hero p { font-size: var(--fs-body); color: var(--text-2); margin-bottom: 30px; line-height: 1.65; }
     .capture-btn {
-      width: 100%; max-width: 300px; margin: 0 auto;
-      padding: 16px 24px; border-radius: var(--radius);
-      border: none; font-size: 16px; font-weight: 700;
+      width: 100%; max-width: 320px; margin: 0 auto;
+      padding: 16px 24px; border-radius: var(--radius-sm);
+      border: none; font-size: 16px; font-weight: 700; font-family: inherit;
       background: var(--accent); color: #fff;
-      cursor: pointer; transition: all 0.25s ease;
+      cursor: pointer; transition: transform 0.2s ease;
       display: flex; align-items: center; justify-content: center; gap: 10px;
+      -webkit-tap-highlight-color: transparent;
     }
-    .capture-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-float); }
-    .capture-btn:active { transform: translateY(0); }
-    .capture-btn svg { width: 22px; height: 22px; fill: #fff; }
-    .capture-btn:disabled { opacity: 0.5; cursor: default; transform: none; }
+    .capture-btn:active { transform: scale(0.99); }
+    .capture-btn svg { width: 20px; height: 20px; fill: #fff; }
+    .capture-btn:disabled { opacity: 0.5; cursor: default; }
     .step1-hint {
-      margin-top: 20px; font-size: 12px; color: var(--text-3); text-align: center;
-      line-height: 1.6; max-width: 280px; margin-left: auto; margin-right: auto;
+      margin-top: 22px; font-size: var(--fs-meta); color: var(--text-3); text-align: center;
+      line-height: 1.7; max-width: 300px; margin-left: auto; margin-right: auto;
     }
 
     /* — Step 2: 诊断 — */
     .preview-img-wrap {
-      margin-bottom: 16px; border-radius: var(--radius-sm);
-      overflow: hidden; border: 1px solid var(--border);
+      margin-bottom: 14px; border-radius: var(--radius-sm);
+      overflow: hidden; border: 1px solid var(--card-edge);
+      background: var(--bg-input);
     }
     .preview-img-wrap img {
-      width: 100%; display: block; max-height: 280px; object-fit: cover;
+      width: 100%; display: block; height: 168px; object-fit: cover;
     }
-    .report-grid { display: flex; flex-direction: column; gap: 10px; }
+
+    /* 结论：这一张最该改的一处 */
+    .verdict-card {
+      background: var(--bg-elev);
+      border: 1px solid var(--card-edge);
+      border-radius: var(--radius);
+      box-shadow: inset 0 1px 0 var(--card-top-light), var(--shadow);
+      padding: 18px;
+      margin-bottom: 12px;
+    }
+    .verdict-label {
+      font-size: var(--fs-meta); color: var(--text-2);
+      letter-spacing: 0.4px; margin-bottom: 8px;
+    }
+    .verdict-text {
+      font-size: var(--fs-verdict); line-height: 1.5;
+      color: var(--text-1); font-weight: 600; letter-spacing: -0.2px;
+      word-break: break-word;
+    }
+
+    /* 动作：下次这样拍 */
+    .action-card {
+      background: var(--accent-dim);
+      border: 1px solid var(--accent-dim);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      margin-bottom: 14px;
+    }
+    .action-label {
+      font-size: var(--fs-meta); color: var(--accent);
+      letter-spacing: 0.4px; margin-bottom: 6px;
+    }
+    .action-text {
+      font-size: var(--fs-action); line-height: 1.6;
+      color: var(--text-1); font-weight: 600;
+    }
+
+    /* 一句话还原画面 */
+    .diag-scene {
+      display: flex; gap: 8px; align-items: baseline;
+      padding: 0 2px; margin-bottom: 16px;
+    }
+    .diag-scene-label { font-size: var(--fs-meta); color: var(--text-3); flex-shrink: 0; }
+    .diag-scene-text { font-size: var(--fs-body); color: var(--text-2); line-height: 1.6; }
+
+    /* 完整分析：默认收起 */
+    .report-details { border-top: 1px solid var(--border); }
+    .report-summary {
+      display: flex; align-items: center; justify-content: space-between;
+      list-style: none; cursor: pointer;
+      padding: 14px 2px 12px;
+      font-size: var(--fs-body); color: var(--text-2);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .report-summary::-webkit-details-marker { display: none; }
+    .report-summary .chev { width: 18px; height: 18px; fill: var(--text-3); transition: transform 0.25s ease; }
+    .report-details[open] .report-summary .chev { transform: rotate(180deg); }
+    .report-grid { display: flex; flex-direction: column; gap: 8px; padding-bottom: 4px; }
     .report-row {
       background: var(--bg-input); border: 1px solid var(--border);
-      border-radius: var(--radius-xs); padding: 12px 14px;
+      border-radius: var(--radius-xs); padding: 11px 13px;
       transition: background 0.35s ease, border-color 0.35s ease;
     }
-    .mode-switch { display: inline-flex; gap: 4px; padding: 4px; background: rgba(255,255,255,0.06); border-radius: 999px; backdrop-filter: blur(20px); margin-top: 18px; }
-    [data-theme="light"] .mode-switch { background: rgba(0,0,0,0.05); }
-    .mode-option { display: inline-flex; align-items: center; gap: 6px; border: none; background: transparent; color: var(--text-2, #9a958f); font-size: 13px; font-family: inherit; padding: 8px 16px; border-radius: 999px; cursor: pointer; transition: background .25s ease-out, color .25s ease-out; }
-    .mode-option svg { width: 14px; height: 14px; fill: currentColor; }
-    .mode-option.active { background: var(--accent-dim); color: var(--accent); font-weight: 600; }
-    .diag-meta { font-size: 11px; color: var(--accent); margin-top: 10px; letter-spacing: 0.3px; }
-    .report-label { font-size: 12px; color: var(--accent); font-weight: 600; display: block; margin-bottom: 4px; }
-    .report-value { font-size: 14px; color: var(--text-1); line-height: 1.6; }
-    .suggestion-box {
-      margin-top: 14px; padding: 14px;
-      background: var(--accent-dim); border-radius: var(--radius-sm);
-      border: 1px solid rgba(123,163,184,0.15);
-      transition: background 0.35s ease;
+    .report-label { font-size: var(--fs-meta); color: var(--text-3); display: block; margin-bottom: 3px; }
+    .report-value { font-size: var(--fs-body); color: var(--text-1); line-height: 1.6; display: block; }
+    .diag-meta { font-size: var(--fs-meta); color: var(--text-3); margin-top: 12px; letter-spacing: 0.2px; }
+
+    /* 诊断模式：低一级的文字开关 */
+    .mode-switch {
+      display: inline-flex; gap: 3px; padding: 3px;
+      background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: 999px; margin-top: 22px;
     }
-    .suggestion-label { font-size: 12px; color: var(--accent); font-weight: 600; margin-bottom: 4px; }
-    .suggestion-text { font-size: 14px; color: var(--text-1); line-height: 1.6; }
+    .mode-option {
+      display: inline-flex; align-items: center; gap: 5px;
+      border: none; background: transparent; color: var(--text-3);
+      font-size: 12px; font-family: inherit; padding: 6px 12px;
+      border-radius: 999px; cursor: pointer;
+      transition: background .25s ease-out, color .25s ease-out;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .mode-option svg { width: 12px; height: 12px; fill: currentColor; }
+    .mode-option.active { background: var(--bg-hover); color: var(--text-2); font-weight: 600; }
 
     /* — Step 3: 选项 — */
-    .intent-section { margin-bottom: 18px; }
-    .intent-title { font-size: 14px; font-weight: 600; color: var(--text-1); margin-bottom: 4px; }
-    .intent-help { font-size: 12px; color: var(--text-3); margin-bottom: 10px; }
+    .opt-intro { margin-bottom: 22px; }
+    .opt-title { font-size: 21px; font-weight: 700; letter-spacing: -0.3px; margin-bottom: 6px; line-height: 1.35; }
+    .opt-sub { font-size: var(--fs-body); color: var(--text-2); line-height: 1.6; }
+    .intent-section { margin-bottom: var(--space-block); }
+    .intent-title { font-size: 15px; font-weight: 600; color: var(--text-1); margin-bottom: 8px; }
+    .intent-help { font-size: 12px; color: var(--text-3); margin: -3px 0 10px; line-height: 1.6; }
+    /* 选项完整换行显示：不横向滚动，不裁切半个字 */
     .chips-scroll {
-      display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;
-      -webkit-overflow-scrolling: touch; scrollbar-width: none;
+      display: flex; flex-wrap: wrap; gap: 8px;
     }
-    .chips-scroll::-webkit-scrollbar { display: none; }
     .chip {
-      flex-shrink: 0; padding: 8px 16px; border-radius: 999px;
+      padding: 9px 14px; border-radius: 999px;
       border: 1px solid var(--border); background: var(--bg-input);
       color: var(--text-2); font-size: 13px; cursor: pointer;
-      transition: all 0.35s ease; white-space: nowrap;
+      transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+      -webkit-tap-highlight-color: transparent;
     }
-    .chip:hover { background: var(--bg-hover); }
+    .chip:active { background: var(--bg-hover); }
     .chip.active {
       border-color: var(--accent); background: var(--accent-dim); color: var(--accent);
+      font-weight: 600;
     }
     .intent-hint {
-      min-height: 20px; margin-top: 6px; font-size: 12px;
+      margin-top: 8px; font-size: 12px;
       color: var(--text-2); line-height: 1.5;
     }
+    .intent-hint:empty { display: none; }
     .summary-bar {
-      margin-top: 8px; padding: 12px 14px;
-      background: var(--bg-input); border-radius: var(--radius-xs);
-      border: 1px solid var(--border); font-size: 13px;
-      color: var(--text-2); line-height: 1.5;
-      transition: background 0.35s ease, border-color 0.35s ease;
+      margin: 0 0 4px; font-size: var(--fs-meta);
+      color: var(--text-3); line-height: 1.6;
+    }
+    /* 生成按钮常驻屏幕底部，不用滚到最下面找 */
+    .gen-dock {
+      position: sticky; bottom: 0;
+      margin: 14px -18px -24px;
+      padding: 14px 18px 20px;
+      background: var(--bg-base);
+      border-top: 1px solid var(--border);
+      z-index: 30;
     }
     .generate-btn {
-      width: 100%; margin-top: 16px; padding: 16px 24px;
+      width: 100%; padding: 15px 24px;
       border-radius: var(--radius-sm); border: none;
-      font-size: 15px; font-weight: 700;
+      font-size: 15px; font-weight: 700; font-family: inherit;
       background: var(--accent); color: #fff;
-      cursor: pointer; transition: all 0.25s ease;
+      cursor: pointer; transition: opacity 0.2s ease, transform 0.2s ease;
+      -webkit-tap-highlight-color: transparent;
     }
-    .generate-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--shadow-float); }
-    .generate-btn:active:not(:disabled) { transform: translateY(0); }
-    .generate-btn:disabled { opacity: 0.35; cursor: default; transform: none; }
+    .generate-btn:active:not(:disabled) { transform: scale(0.99); }
+    .generate-btn:disabled { opacity: 0.3; cursor: default; }
+    .gen-dock-hint { margin-top: 8px; font-size: var(--fs-meta); color: var(--text-3); text-align: center; }
+    /* 生成失败时的那句话贴着按钮，不藏在滚动区里 */
+    .gen-dock .status-text { margin: 0 0 10px; min-height: 0; font-size: 12px; }
+    .gen-dock .status-text:empty { display: none; }
 
     /* — Step 4: 结果 — */
-    .strategy-grid { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
-    .strategy-row {
-      background: var(--bg-input); border: 1px solid var(--border);
-      border-radius: var(--radius-xs); padding: 10px 14px;
-      transition: background 0.35s ease, border-color 0.35s ease;
+    .result-intro { margin-bottom: 18px; }
+    .result-title { font-size: 24px; font-weight: 700; letter-spacing: -0.4px; margin-bottom: 6px; line-height: 1.3; }
+    .result-sub { font-size: var(--fs-body); color: var(--text-2); line-height: 1.6; }
+
+    /* 生成图放在最前：这一屏先回答"改成了什么样" */
+    .ai-block-head {
+      display: flex; align-items: baseline; justify-content: space-between;
+      gap: 10px; margin-bottom: 10px;
     }
-    .strategy-label { font-size: 11px; color: var(--accent); font-weight: 600; display: block; margin-bottom: 3px; }
-    .strategy-value { font-size: 13px; color: var(--text-1); line-height: 1.5; }
+    .ai-block-label { font-size: 15px; font-weight: 600; color: var(--text-1); }
+    .ai-block-hint { font-size: var(--fs-meta); color: var(--text-3); text-align: right; line-height: 1.4; }
     .ai-grid {
       display: grid; grid-template-columns: repeat(2, 1fr);
-      gap: 12px; margin-top: 14px;
+      gap: var(--space-row);
     }
     .ai-card {
-      background: var(--bg-input); border: 2px solid var(--border);
-      border-radius: var(--radius-sm); padding: 10px;
-      transition: all 0.25s ease; cursor: pointer;
+      position: relative;
+      background: var(--bg-input); border: 1px solid var(--card-edge);
+      border-radius: var(--radius-sm); padding: 8px;
+      transition: border-color 0.25s ease, background 0.25s ease;
+      cursor: pointer;
     }
-    .ai-card.selected { border-color: var(--success); box-shadow: 0 0 0 1px rgba(138,191,160,0.25); }
-    .ai-card-title { font-size: 11px; color: var(--accent); font-weight: 600; margin-bottom: 6px; word-break: break-word; }
-    .ai-card img { width: 100%; border-radius: 8px; display: block; }
+    .ai-card.selected { border-color: var(--accent); background: var(--accent-dim); }
+    .ai-card-index {
+      position: absolute; top: 14px; left: 14px;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: rgba(0,0,0,0.45); color: #fff;
+      font-size: 11px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .ai-card img { width: 100%; border-radius: 6px; display: block; background: var(--bg-hover); }
+    .ai-card-title { font-size: var(--fs-meta); color: var(--text-3); margin: 7px 2px 0; word-break: break-word; }
+    .ai-card.selected .ai-card-title { color: var(--accent); font-weight: 600; }
     .push-btn {
-      width: 100%; margin-top: 8px; padding: 8px;
-      border-radius: 8px; border: 1px solid var(--border);
-      background: var(--bg-hover); color: var(--text-1);
-      font-size: 12px; cursor: pointer; transition: all 0.35s ease;
+      width: 100%; margin-top: 6px; padding: 7px;
+      border-radius: 7px; border: 1px solid var(--border);
+      background: transparent; color: var(--text-2); font-family: inherit;
+      font-size: 12px; cursor: pointer;
+      transition: background 0.25s ease, color 0.25s ease;
+      -webkit-tap-highlight-color: transparent;
     }
-    .push-btn:disabled { opacity: 0.5; cursor: wait; }
-    .push-btn:hover:not(:disabled) { background: var(--accent-dim); color: var(--accent); }
+    .push-btn:disabled { opacity: 0.5; cursor: default; }
+    .push-btn:hover:not(:disabled) { background: var(--bg-hover); }
+    .ai-card.selected .push-btn { color: var(--accent); border-color: var(--accent); background: transparent; }
+
+    /* 这次改了什么：默认收起，想看的才展开 */
+    .strategy-details { margin-top: 20px; }
+    .strategy-grid { display: flex; flex-direction: column; gap: 8px; padding-bottom: 6px; }
+    .strategy-row {
+      background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: var(--radius-xs); padding: 10px 13px;
+      transition: background 0.35s ease, border-color 0.35s ease;
+    }
+    .strategy-label { font-size: var(--fs-meta); color: var(--text-3); display: block; margin-bottom: 3px; }
+    .strategy-value { font-size: var(--fs-body); color: var(--text-1); line-height: 1.55; }
+
+    /* 今天带走的一条 */
+    .takeaway-card {
+      margin-top: 20px; padding: 16px 18px;
+      background: var(--bg-elev); border: 1px solid var(--card-edge);
+      border-radius: var(--radius);
+      box-shadow: inset 0 1px 0 var(--card-top-light);
+    }
+    .takeaway-label { font-size: var(--fs-meta); color: var(--text-2); letter-spacing: 0.4px; margin-bottom: 8px; }
+    .takeaway-text { font-size: var(--fs-action); line-height: 1.6; color: var(--text-1); font-weight: 600; }
+
     .restart-btn {
-      width: 100%; margin-top: 20px; padding: 14px;
-      border-radius: var(--radius-sm); border: 1px solid var(--border);
-      background: var(--bg-input); color: var(--text-2);
-      font-size: 14px; font-weight: 600; cursor: pointer;
-      transition: all 0.35s ease;
+      width: 100%; margin-top: 16px; padding: 15px;
+      border-radius: var(--radius-sm); border: none;
+      background: var(--accent); color: #fff;
+      font-size: 15px; font-weight: 700; font-family: inherit;
+      cursor: pointer; transition: transform 0.2s ease;
+      -webkit-tap-highlight-color: transparent;
     }
-    .restart-btn:hover { background: var(--bg-hover); }
+    .restart-btn:active { transform: scale(0.99); }
+    .link-btn {
+      display: block; width: 100%; margin-top: 10px; padding: 8px;
+      background: transparent; border: none; color: var(--text-3);
+      font-size: 12px; font-family: inherit; cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* 结果页不需要底栏：主按钮已经在页面里 */
+    body.no-bar .wizard { bottom: 0; }
+    body.no-bar .bottom-bar { display: none; }
+    body.no-bar .step[data-step="4"] { padding-bottom: 40px; }
 
     /* — Status text — */
     .status-text {
@@ -313,109 +461,45 @@
     /* — 加载动画：诊断 — */
     .loader-diagnosis {
       display: flex; flex-direction: column; align-items: center;
-      padding: 32px 0 24px;
+      padding: 44px 0 24px;
     }
-    .loader-ring-wrap {
-      position: relative; width: 140px; height: 140px; margin-bottom: 24px;
-    }
-    .ring-outer { position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--border); }
-    .ring-outer::before {
-      content: ''; position: absolute; inset: -2px; border-radius: 50%;
-      border: 2px solid transparent; border-top-color: var(--accent); border-right-color: var(--accent);
-      animation: spin 3s linear infinite;
-    }
-    .ring-mid { position: absolute; inset: 16px; border-radius: 50%; border: 2px solid var(--border); }
-    .ring-mid::before {
-      content: ''; position: absolute; inset: -2px; border-radius: 50%;
-      border: 2px solid transparent; border-bottom-color: var(--accent); border-left-color: rgba(123,163,184,0.4);
-      animation: spin-reverse 2.2s linear infinite;
-    }
-    .ring-inner {
-      position: absolute; inset: 32px; border-radius: 50%;
-      background: var(--accent-dim); animation: pulse-breathe 2s ease-in-out infinite;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .aperture { width: 28px; height: 28px; position: relative; }
-    .aperture .blade {
-      position: absolute; width: 12px; height: 12px;
-      border-radius: 50%; border: 2px solid var(--accent); border-left-color: transparent;
-      animation: aperture-rotate 2s ease-in-out infinite;
-    }
-    .aperture .blade:nth-child(1) { top: 0; left: 8px; animation-delay: 0s; }
-    .aperture .blade:nth-child(2) { top: 4px; left: 15px; animation-delay: 0.3s; }
-    .aperture .blade:nth-child(3) { top: 12px; left: 15px; animation-delay: 0.6s; }
-    .aperture .blade:nth-child(4) { top: 17px; left: 8px; animation-delay: 0.9s; }
-    .aperture .blade:nth-child(5) { top: 12px; left: 0; animation-delay: 1.2s; }
-    .aperture .blade:nth-child(6) { top: 4px; left: 0; animation-delay: 1.5s; }
-    .scan-line { position: absolute; inset: 16px; border-radius: 50%; overflow: hidden; }
-    .scan-line::before {
-      content: ''; position: absolute; top: 0; left: 50%; width: 1px; height: 50%;
-      background: linear-gradient(to bottom, var(--accent), transparent);
-      transform-origin: bottom center; animation: scan-sweep 2.5s ease-in-out infinite;
+    .wait-title { font-size: 17px; font-weight: 600; color: var(--text-1); margin-bottom: 8px; text-align: center; }
+    .wait-time { font-size: var(--fs-meta); color: var(--text-3); margin-bottom: 24px; text-align: center; letter-spacing: 0.2px; }
+    /* 一个安静的指示器：只表示"还在干活" */
+    .spinner {
+      width: 34px; height: 34px; border-radius: 50%;
+      border: 2px solid var(--border); border-top-color: var(--accent);
+      animation: spin 0.9s linear infinite; margin-bottom: 18px;
     }
     .analysis-steps { width: 100%; display: flex; flex-direction: column; gap: 6px; }
     .analysis-step {
       display: flex; align-items: center; gap: 10px;
       padding: 10px 14px; border-radius: var(--radius-xs);
-      background: var(--bg-input); border: 1px solid var(--border);
-      font-size: 13px; color: var(--text-3);
-      transition: all 0.5s ease;
+      background: transparent; border: 1px solid var(--border);
+      font-size: var(--fs-body); color: var(--text-3);
+      transition: color 0.4s ease, border-color 0.4s ease, background 0.4s ease;
     }
-    .analysis-step.active { color: var(--text-1); background: var(--accent-dim); border-color: rgba(123,163,184,0.2); }
-    .analysis-step.done { color: var(--accent); }
+    .analysis-step.active { color: var(--text-1); background: var(--bg-input); border-color: var(--accent); }
+    .analysis-step.done { color: var(--text-2); }
     .step-dot {
-      width: 7px; height: 7px; border-radius: 50%;
+      width: 6px; height: 6px; border-radius: 50%;
       background: var(--text-3); flex-shrink: 0;
-      transition: all 0.4s ease;
+      transition: background 0.4s ease;
     }
-    .analysis-step.active .step-dot { background: var(--accent); animation: dot-pulse 1s ease-in-out infinite; }
-    .analysis-step.done .step-dot { background: var(--accent); }
+    .analysis-step.active .step-dot { background: var(--accent); }
+    .analysis-step.done .step-dot { background: var(--success); }
 
     /* — 加载动画：生成 — */
     .loader-generation {
       display: flex; flex-direction: column; align-items: center;
-      padding: 32px 0 24px;
+      padding: 52px 0 24px;
     }
-    .gen-orb-wrap { position: relative; width: 140px; height: 140px; margin-bottom: 24px; }
-    .gen-orb {
-      position: absolute; border-radius: 50%; filter: blur(1px);
-      animation: orb-morph 4s ease-in-out infinite;
-    }
-    .gen-orb-1 { width: 90px; height: 90px; top: 25px; left: 25px;
-      background: radial-gradient(circle, var(--accent-glow), transparent 70%); animation-duration: 3.5s; }
-    .gen-orb-2 { width: 70px; height: 70px; top: 35px; left: 35px;
-      background: radial-gradient(circle, rgba(123,163,184,0.2), transparent 70%); animation-duration: 4.2s; animation-delay: -1s; }
-    .gen-orb-3 { width: 50px; height: 50px; top: 45px; left: 45px;
-      background: radial-gradient(circle, rgba(123,163,184,0.3), transparent 70%); animation-duration: 3s; animation-delay: -2s; }
-    .gen-core {
-      position: absolute; top: 50%; left: 50%;
-      width: 10px; height: 10px; margin: -5px 0 0 -5px;
-      border-radius: 50%; background: var(--accent);
-      box-shadow: 0 0 20px var(--accent-glow), 0 0 40px var(--accent-dim);
-      animation: core-breathe 2s ease-in-out infinite;
-    }
-    .gen-halo {
-      position: absolute; inset: 8px; border-radius: 50%;
-      border: 1px solid rgba(123,163,184,0.12);
-      animation: halo-expand 3s ease-in-out infinite;
-    }
-    .gen-particles { position: absolute; inset: 0; }
-    .gen-particle {
-      position: absolute; width: 3px; height: 3px; border-radius: 50%;
-      background: var(--accent); opacity: 0;
-      animation: particle-float 3s ease-in-out infinite;
-    }
-    .gen-particle:nth-child(1) { top: 20%; left: 15%; animation-delay: 0s; }
-    .gen-particle:nth-child(2) { top: 70%; left: 20%; animation-delay: 0.5s; }
-    .gen-particle:nth-child(3) { top: 15%; left: 75%; animation-delay: 1s; }
-    .gen-particle:nth-child(4) { top: 75%; left: 80%; animation-delay: 1.5s; }
-    .gen-particle:nth-child(5) { top: 45%; left: 10%; animation-delay: 2s; }
-    .gen-particle:nth-child(6) { top: 50%; left: 88%; animation-delay: 2.5s; }
-    .gen-progress { width: 100%; text-align: center; }
-    .gen-phase { font-size: 14px; color: var(--text-1); font-weight: 500; margin-bottom: 8px; min-height: 22px; }
-    .gen-bar-wrap { width: 100%; height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; }
-    .gen-bar { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--accent), rgba(123,163,184,0.5)); width: 0%; transition: width 1.5s ease; }
-    .gen-time { font-size: 12px; color: var(--text-3); margin-top: 8px; }
+    .gen-phase { font-size: 17px; font-weight: 600; color: var(--text-1); margin-bottom: 8px; text-align: center; min-height: 24px; }
+    .gen-time { font-size: var(--fs-meta); color: var(--text-3); text-align: center; letter-spacing: 0.2px; }
+    .gen-note { margin-top: 14px; font-size: var(--fs-meta); color: var(--text-3); text-align: center; line-height: 1.6; }
+    /* 不做假进度条：这里只保留真实计时 */
+    .gen-bar-wrap { display: none; }
+    .gen-bar { display: none; }
 
     /* — 设置面板 — */
     .settings-overlay {
@@ -482,20 +566,6 @@
 
     /* — Animations — */
     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-    @keyframes spin-reverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
-    @keyframes pulse-breathe { 0%,100% { transform: scale(1); opacity: 0.6; } 50% { transform: scale(1.08); opacity: 1; } }
-    @keyframes aperture-rotate { 0%,100% { transform: rotate(0deg) scale(1); opacity: 0.6; } 50% { transform: rotate(30deg) scale(0.85); opacity: 1; } }
-    @keyframes scan-sweep { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    @keyframes dot-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.5); } }
-    @keyframes orb-morph {
-      0%,100% { border-radius: 42% 58% 63% 37% / 55% 45% 55% 45%; transform: rotate(0deg) scale(1); }
-      25% { border-radius: 55% 45% 38% 62% / 48% 58% 42% 52%; transform: rotate(45deg) scale(1.05); }
-      50% { border-radius: 38% 62% 55% 45% / 62% 38% 62% 38%; transform: rotate(90deg) scale(0.95); }
-      75% { border-radius: 60% 40% 45% 55% / 40% 60% 40% 60%; transform: rotate(135deg) scale(1.02); }
-    }
-    @keyframes core-breathe { 0%,100% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.3); opacity: 1; } }
-    @keyframes halo-expand { 0% { transform: scale(0.8); opacity: 0.6; } 50% { transform: scale(1.1); opacity: 0.2; } 100% { transform: scale(0.8); opacity: 0.6; } }
-    @keyframes particle-float { 0% { opacity: 0; transform: translateY(0) scale(0.5); } 20% { opacity: 0.8; } 80% { opacity: 0.8; } 100% { opacity: 0; transform: translateY(-20px) scale(1.2); } }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
     }
@@ -524,12 +594,12 @@
         <div class="icon-large">
           <svg viewBox="0 0 24 24"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
         </div>
-        <h2>拍摄一张照片</h2>
-        <p>拍摄你想要分析的照片<br>系统将从构图、光线、景别等维度进行诊断</p>
+        <h2>先拍一张</h2>
+        <p>拍完马上告诉你：这张最该改的是哪一处。<br>不用懂参数。</p>
         <input id="photoInput" type="file" accept="image/*" capture="environment" style="display:none" />
         <button id="captureBtn" class="capture-btn" type="button">
           <svg viewBox="0 0 24 24"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
-          拍照并分析
+          拍照
         </button>
         <div class="mode-switch" id="modeSwitch" aria-label="诊断模式">
           <button class="mode-option active" data-mode="standard" type="button">
@@ -541,7 +611,7 @@
             快速诊断
           </button>
         </div>
-        <div class="step1-hint" id="step1Hint">拍照后会自动进入诊断分析，结果将同步到电脑展示页和 ESP 屏幕。</div>
+        <div class="step1-hint" id="step1Hint">拍完直接开始看，一般 20–30 秒；结果会同步到电脑展示页和小屏幕。</div>
       </div>
     </div>
 
@@ -553,100 +623,112 @@
       </div>
       <!-- 加载动画 -->
       <div class="loader-diagnosis" id="diagLoader">
-        <div class="loader-ring-wrap">
-          <div class="ring-outer"></div>
-          <div class="ring-mid"></div>
-          <div class="ring-inner">
-            <div class="aperture">
-              <div class="blade"></div><div class="blade"></div><div class="blade"></div>
-              <div class="blade"></div><div class="blade"></div><div class="blade"></div>
-            </div>
-          </div>
-          <div class="scan-line"></div>
-        </div>
+        <div class="spinner"></div>
+        <div class="wait-title">正在看这张照片</div>
+        <div class="wait-time" id="diagElapsed">已用 0 秒</div>
         <div class="analysis-steps" id="diagSteps">
-          <div class="analysis-step" data-index="0"><div class="step-dot"></div><span>识别画面主体与构图</span></div>
-          <div class="analysis-step" data-index="1"><div class="step-dot"></div><span>分析光照与色彩环境</span></div>
-          <div class="analysis-step" data-index="2"><div class="step-dot"></div><span>评估拍摄角度与景别</span></div>
-          <div class="analysis-step" data-index="3"><div class="step-dot"></div><span>生成摄影诊断建议</span></div>
+          <div class="analysis-step" data-index="0"><div class="step-dot"></div><span>找画面主体</span></div>
+          <div class="analysis-step" data-index="1"><div class="step-dot"></div><span>看光线</span></div>
+          <div class="analysis-step" data-index="2"><div class="step-dot"></div><span>看角度和景别</span></div>
+          <div class="analysis-step" data-index="3"><div class="step-dot"></div><span>写下最该改的一处</span></div>
         </div>
       </div>
       <!-- 诊断结果 -->
       <div id="diagResult" style="display:none">
-        <div class="glass-card">
-          <div class="card-title">摄影诊断报告</div>
-          <div class="card-subtitle">以下是对你照片的专业分析</div>
-          <div class="diag-meta" id="diagMeta" style="display:none"></div>
+        <!-- 一屏只回答一个问题：这张怎么样 -->
+        <div class="verdict-card">
+          <div class="verdict-label">这张最该改的一处</div>
+          <div class="verdict-text" id="verdictText">-</div>
         </div>
-        <div class="report-grid" id="reportGrid">
-          <div class="report-row"><span class="report-label">画面概括</span><span class="report-value" id="scene_summary">-</span></div>
-          <div class="report-row"><span class="report-label">人物位置分析</span><span class="report-value" id="subject_position_analysis">-</span></div>
-          <div class="report-row"><span class="report-label">拍摄角度分析</span><span class="report-value" id="camera_angle_analysis">-</span></div>
-          <div class="report-row"><span class="report-label">景别匹配分析</span><span class="report-value" id="shot_size_analysis">-</span></div>
-          <div class="report-row"><span class="report-label">构图问题诊断</span><span class="report-value" id="composition_analysis">-</span></div>
-          <div class="report-row"><span class="report-label">光照源推测</span><span class="report-value" id="light_source_inference">-</span></div>
-          <div class="report-row"><span class="report-label">推荐拍摄位置</span><span class="report-value" id="recommended_shooting_position">-</span></div>
+        <div class="action-card">
+          <div class="action-label">下次这样拍</div>
+          <div class="action-text" id="suggested_adjustment">-</div>
         </div>
-        <div class="suggestion-box">
-          <div class="suggestion-label">基础建议</div>
-          <div class="suggestion-text" id="suggested_adjustment">-</div>
+        <div class="diag-scene">
+          <span class="diag-scene-label">画面</span>
+          <span class="diag-scene-text" id="scene_summary">-</span>
         </div>
+        <details class="report-details">
+          <summary class="report-summary">
+            <span>完整分析（6 项）</span>
+            <svg class="chev" viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
+          </summary>
+          <div class="report-grid" id="reportGrid">
+            <div class="report-row"><span class="report-label">人物位置</span><span class="report-value" id="subject_position_analysis">-</span></div>
+            <div class="report-row"><span class="report-label">拍摄角度</span><span class="report-value" id="camera_angle_analysis">-</span></div>
+            <div class="report-row"><span class="report-label">景别是否合适</span><span class="report-value" id="shot_size_analysis">-</span></div>
+            <div class="report-row"><span class="report-label">构图问题</span><span class="report-value" id="composition_analysis">-</span></div>
+            <div class="report-row"><span class="report-label">光线从哪来</span><span class="report-value" id="light_source_inference">-</span></div>
+            <div class="report-row"><span class="report-label">站哪拍更好</span><span class="report-value" id="recommended_shooting_position">-</span></div>
+          </div>
+        </details>
+        <div class="diag-meta" id="diagMeta" style="display:none"></div>
       </div>
       <div id="diagStatus" class="status-text" style="text-align:center;"></div>
     </div>
 
     <!-- Step 3: 选择目标 -->
     <div class="step" data-step="3">
-      <div class="glass-card">
-        <div class="card-title">选择优化目标</div>
-        <div class="card-subtitle">选项会直接进入图像生成指令，系统会强执行一个主目标。</div>
+      <div class="opt-intro">
+        <h2 class="opt-title">想改成什么样</h2>
+        <p class="opt-sub">挑你最在意的一项，其他交给系统。</p>
       </div>
       <div id="intentGroups"></div>
       <div class="summary-bar" id="intentSummary"></div>
-      <button id="generateBtn" class="generate-btn" type="button" disabled>生成专业策略与理想结果图</button>
-      <div id="genStatus" class="status-text" style="text-align:center;"></div>
+      <div class="gen-dock">
+        <div id="genStatus" class="status-text" style="text-align:center;"></div>
+        <button id="generateBtn" class="generate-btn" type="button" disabled>生成一张看看</button>
+        <div class="gen-dock-hint">大约 20–40 秒</div>
+      </div>
     </div>
 
     <!-- Step 4: 结果 -->
     <div class="step" data-step="4">
       <!-- 生成动画 -->
       <div class="loader-generation" id="genLoader" style="display:none">
-        <div class="gen-orb-wrap">
-          <div class="gen-halo"></div><div class="gen-halo"></div><div class="gen-halo"></div>
-          <div class="gen-orb gen-orb-1"></div>
-          <div class="gen-orb gen-orb-2"></div>
-          <div class="gen-orb gen-orb-3"></div>
-          <div class="gen-core"></div>
-          <div class="gen-particles">
-            <div class="gen-particle"></div><div class="gen-particle"></div><div class="gen-particle"></div>
-            <div class="gen-particle"></div><div class="gen-particle"></div><div class="gen-particle"></div>
-          </div>
-        </div>
-        <div class="gen-progress">
-          <div class="gen-phase" id="genPhase">正在构建优化策略…</div>
-          <div class="gen-bar-wrap"><div class="gen-bar" id="genBar"></div></div>
-          <div class="gen-time" id="genTime">预计等待 15-30 秒</div>
-        </div>
+        <div class="spinner"></div>
+        <div class="gen-phase" id="genPhase">正在生成</div>
+        <div class="gen-time" id="genTime">已用 0 秒</div>
+        <div class="gen-bar-wrap"><div class="gen-bar" id="genBar"></div></div>
+        <div class="gen-note">一般 20–40 秒，别切走这一页</div>
       </div>
       <!-- 结果内容 -->
       <div id="resultContent" style="display:none">
-        <div class="glass-card">
-          <div class="card-title">策略结果</div>
+        <div class="result-intro">
+          <h2 class="result-title">改好了</h2>
+          <p class="result-sub">同一张照片，按你选的方向重新拍了一次。</p>
         </div>
-        <div class="strategy-grid" id="strategyGrid">
-          <div class="strategy-row"><span class="strategy-label">实际优化重点</span><span class="strategy-value" id="effective_goal">-</span></div>
-          <div class="strategy-row"><span class="strategy-label">构图目标</span><span class="strategy-value" id="composition_goal">-</span></div>
-          <div class="strategy-row"><span class="strategy-label">机位与角度</span><span class="strategy-value" id="camera_plan">-</span></div>
-          <div class="strategy-row"><span class="strategy-label">镜头与景别</span><span class="strategy-value" id="lens_plan">-</span></div>
-          <div class="strategy-row"><span class="strategy-label">人物位置与姿态</span><span class="strategy-value" id="subject_plan">-</span></div>
-          <div class="strategy-row"><span class="strategy-label">画幅与优化强度</span><span class="strategy-value" id="output_plan">-</span></div>
+
+        <div class="ai-block">
+          <div class="ai-block-head">
+            <span class="ai-block-label">生成结果</span>
+            <span class="ai-block-hint" id="aiCardSubtitle">点一张，设成小屏幕主图</span>
+          </div>
+          <div class="ai-grid" id="aiGrid"></div>
         </div>
-        <div class="glass-card">
-          <div class="card-title">AI 生成图</div>
-          <div class="card-subtitle" id="aiCardSubtitle">点击图片可设为屏幕主图</div>
+
+        <details class="report-details strategy-details">
+          <summary class="report-summary">
+            <span>这次改了什么</span>
+            <svg class="chev" viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
+          </summary>
+          <div class="strategy-grid" id="strategyGrid">
+            <div class="strategy-row"><span class="strategy-label">实际优化重点</span><span class="strategy-value" id="effective_goal">-</span></div>
+            <div class="strategy-row"><span class="strategy-label">构图目标</span><span class="strategy-value" id="composition_goal">-</span></div>
+            <div class="strategy-row"><span class="strategy-label">机位与角度</span><span class="strategy-value" id="camera_plan">-</span></div>
+            <div class="strategy-row"><span class="strategy-label">镜头与景别</span><span class="strategy-value" id="lens_plan">-</span></div>
+            <div class="strategy-row"><span class="strategy-label">人物位置与姿态</span><span class="strategy-value" id="subject_plan">-</span></div>
+            <div class="strategy-row"><span class="strategy-label">画幅与优化强度</span><span class="strategy-value" id="output_plan">-</span></div>
+          </div>
+        </details>
+
+        <div class="takeaway-card">
+          <div class="takeaway-label">今天带走这一条</div>
+          <div class="takeaway-text" id="takeawayText"></div>
         </div>
-        <div class="ai-grid" id="aiGrid"></div>
-        <button class="restart-btn" id="restartBtn" type="button">重新拍摄</button>
+
+        <button class="restart-btn" id="restartBtn" type="button">再拍一张</button>
+        <button class="link-btn" id="backToOptions" type="button">换个优化方向</button>
       </div>
       <div id="resultStatus" class="status-text" style="text-align:center;"></div>
     </div>
@@ -697,14 +779,19 @@
     // ===== Data =====
     let intentSchema = [];
     let selectedIntent = {};
+    let defaultIntent = {};
     try { intentSchema = JSON.parse(document.getElementById('intentSchemaData').textContent); } catch(e) {}
-    try { selectedIntent = JSON.parse(document.getElementById('defaultIntentData').textContent); } catch(e) {}
+    try {
+      selectedIntent = JSON.parse(document.getElementById('defaultIntentData').textContent);
+      defaultIntent = Object.assign({}, selectedIntent);
+    } catch(e) {}
 
     // ===== State =====
     let currentStep = 1;
     let currentSessionId = '';
     let diagnosisComplete = false;
     let generationInProgress = false;
+    let lastSuggestion = '';
 
     // ===== Elements =====
     const el = {
@@ -719,6 +806,11 @@
       diagLoader: document.getElementById('diagLoader'),
       diagResult: document.getElementById('diagResult'),
       diagStatus: document.getElementById('diagStatus'),
+      diagElapsed: document.getElementById('diagElapsed'),
+      verdictText: document.getElementById('verdictText'),
+      takeawayText: document.getElementById('takeawayText'),
+      backToOptions: document.getElementById('backToOptions'),
+      bottomBar: document.querySelector('.bottom-bar'),
       diagSteps: document.querySelectorAll('#diagSteps .analysis-step'),
       intentGroups: document.getElementById('intentGroups'),
       intentSummary: document.getElementById('intentSummary'),
@@ -801,10 +893,13 @@
       // 第 3 步用"生成"按钮替代"下一步"，其余步骤必须把按钮恢复显示，
       // 否则从第 3 步返回后会一直保持 display:none，无法再前进。
       el.btnNext.style.display = currentStep === 3 ? 'none' : '';
+      // 结果页不需要底栏：主按钮（再拍一张）就在页面里，底栏留着只会出现一个点不动的"下一步"
+      document.body.classList.toggle('no-bar', currentStep === 4);
       if (currentStep === 1) {
         el.btnNext.disabled = true; el.btnNext.textContent = '下一步';
       } else if (currentStep === 2) {
-        el.btnNext.disabled = !diagnosisComplete; el.btnNext.textContent = '下一步';
+        el.btnNext.disabled = !diagnosisComplete;
+        el.btnNext.textContent = diagnosisComplete ? '去选优化方向' : '下一步';
       } else if (currentStep === 3) {
         el.generateBtn.disabled = !diagnosisComplete;
       } else {
@@ -816,8 +911,12 @@
     el.btnNext.addEventListener('click', () => {
       if (currentStep === 2 && diagnosisComplete) goToStep(3, 'forward');
     });
+    el.backToOptions.addEventListener('click', () => {
+      if (diagnosisComplete) goToStep(3, 'backward');
+    });
     el.restartBtn.addEventListener('click', () => {
       currentSessionId = ''; diagnosisComplete = false; generationInProgress = false;
+      lastSuggestion = '';
       el.previewWrap.style.display = 'none'; el.diagResult.style.display = 'none';
       el.diagLoader.style.display = ''; el.diagStatus.textContent = '';
       el.diagSteps.forEach(s => s.classList.remove('active', 'done'));
@@ -825,13 +924,11 @@
       el.resultStatus.textContent = ''; el.genStatus.textContent = '';
       el.aiGrid.innerHTML = '';
       el.generateBtn.disabled = true;
-      el.genBar.style.width = '0%';
-      el.genPhase.textContent = '正在构建优化策略…';
-      el.genTime.textContent = '预计等待 15-30 秒';
+      stopGenAnim();
+      stopDiagElapsed();
+      el.genPhase.textContent = '正在生成';
+      el.genTime.textContent = '已用 0 秒';
       goToStep(1, 'backward');
-      setTimeout(() => {
-        el.diagLoader.style.display = '';
-      }, 400);
     });
 
     // ===== Utility =====
@@ -840,6 +937,18 @@
       elNode.className = 'status-text' + (type === 'ok' ? ' ok' : type === 'err' ? ' err' : '');
     }
     function setField(id, val) { const e = document.getElementById(id); if (e) e.textContent = val || '-'; }
+    // 只留第一句，太长就截断：给人一句话，不是一段话
+    function shortSentence(text, max) {
+      const t = (text || '').replace(/\s+/g, ' ').trim();
+      if (!t || t === '-') return '';
+      const first = t.split(/[。；;！!？?\n]/).filter(Boolean)[0] || t;
+      const s = first.trim();
+      return s.length > max ? s.slice(0, max - 1) + '…' : s;
+    }
+    // 把一条建议压成一句可以带走的话；没有建议就直说没有，不编一条
+    function makeTakeaway(text) {
+      return shortSentence(text, 34) || '这次没有给出可带走的建议，换个方向再拍一张。';
+    }
     function toDisplayUrl(url) {
       if (!url) return '';
       try {
@@ -854,6 +963,18 @@
 
     // ===== Diagnosis animation =====
     let diagAnimTimer = null;
+    let diagElapsedTimer = null;
+    let diagStartTs = 0;
+    function startDiagElapsed() {
+      diagStartTs = Date.now();
+      el.diagElapsed.textContent = '已用 0 秒';
+      clearInterval(diagElapsedTimer);
+      diagElapsedTimer = setInterval(() => {
+        const sec = Math.floor((Date.now() - diagStartTs) / 1000);
+        el.diagElapsed.textContent = '已用 ' + sec + ' 秒';
+      }, 1000);
+    }
+    function stopDiagElapsed() { clearInterval(diagElapsedTimer); diagElapsedTimer = null; }
     function startDiagAnim() {
       clearInterval(diagAnimTimer);
       el.diagSteps.forEach(s => s.classList.remove('active', 'done'));
@@ -864,49 +985,52 @@
         i++;
         if (i < el.diagSteps.length) { el.diagSteps[i].classList.add('active'); }
         else { clearInterval(diagAnimTimer); }
-      }, 2000);
+      }, 2600);
+      startDiagElapsed();
     }
-    function stopDiagAnim() { clearInterval(diagAnimTimer); el.diagSteps.forEach(s => { s.classList.remove('active'); s.classList.add('done'); }); }
+    function stopDiagAnim() { clearInterval(diagAnimTimer); stopDiagElapsed(); el.diagSteps.forEach(s => { s.classList.remove('active'); s.classList.add('done'); }); }
 
     // ===== Generation animation =====
-    const genStages = [
-      { text: '正在构建优化策略…', pct: 15, time: '预计等待 20-30 秒' },
-      { text: '分析摄影参数与目标…', pct: 30, time: '预计等待 15-25 秒' },
-      { text: '调用图像生成模型…', pct: 52, time: '预计等待 10-20 秒' },
-      { text: '渲染理想效果画面…', pct: 72, time: '预计等待 5-15 秒' },
-      { text: '优化画质与细节…', pct: 88, time: '即将完成…' },
-      { text: '生成完成', pct: 100, time: '' },
+    // 不做假进度条：只给真实经过时间，让等待变成一个可以核对的事实
+    const genPhases = [
+      { at: 0,  text: '正在生成' },
+      { at: 10, text: '还在生成' },
+      { at: 22, text: '快好了' },
+      { at: 38, text: '比平时久一点，还在跑' },
     ];
+    let genStartTs = 0;
     let genAnimTimer = null;
     function startGenAnim() {
-      clearTimeout(genAnimTimer);
-      el.genBar.style.width = '0%';
-      let i = 0;
-      function next() {
-        if (i >= genStages.length || !generationInProgress) return;
-        const s = genStages[i];
-        el.genPhase.textContent = s.text;
-        el.genBar.style.width = s.pct + '%';
-        el.genTime.textContent = s.time;
-        i++;
-        genAnimTimer = setTimeout(next, 2500);
-      }
-      next();
+      clearInterval(genAnimTimer);
+      genStartTs = Date.now();
+      el.genPhase.textContent = genPhases[0].text;
+      el.genTime.textContent = '已用 0 秒';
+      genAnimTimer = setInterval(() => {
+        const sec = Math.floor((Date.now() - genStartTs) / 1000);
+        el.genTime.textContent = '已用 ' + sec + ' 秒';
+        let label = genPhases[0].text;
+        genPhases.forEach(p => { if (sec >= p.at) label = p.text; });
+        el.genPhase.textContent = label;
+      }, 1000);
     }
     function stopGenAnim() {
-      clearTimeout(genAnimTimer);
-      el.genPhase.textContent = '生成完成';
-      el.genBar.style.width = '100%';
+      clearInterval(genAnimTimer);
+      genAnimTimer = null;
+      el.genPhase.textContent = '出来了';
       el.genTime.textContent = '';
     }
 
     // ===== Intent chips =====
+    // 只列出与默认值不同的几项，避免把 5 组全抄一遍
     function selectedIntentSummary() {
-      return intentSchema.map(g => {
+      const parts = intentSchema.filter(g => selectedIntent[g.key] !== defaultIntent[g.key]).map(g => {
         const sel = g.options.find(o => o.value === selectedIntent[g.key]);
         return `${g.label}：${sel ? sel.label : '-'}`;
-      }).join(' / ');
+      });
+      return parts.length ? `已选 · ${parts.join('  /  ')}` : '还没改，将按诊断结论自动优化';
     }
+    // 只让"你动过的那一组"解释自己
+    const touchedGroups = new Set();
     function renderChips(group) {
       const wrap = document.getElementById(group.key + '_chips');
       const hint = document.getElementById(group.key + '_hint');
@@ -918,19 +1042,26 @@
         btn.textContent = opt.label; btn.title = opt.hint || '';
         btn.addEventListener('click', () => {
           selectedIntent[group.key] = opt.value;
+          touchedGroups.add(group.key);
           renderChips(group);
           el.intentSummary.textContent = selectedIntentSummary();
         });
         wrap.appendChild(btn);
       });
       const sel = group.options.find(o => o.value === selectedIntent[group.key]);
-      hint.textContent = sel && sel.hint ? `当前作用：${sel.hint}` : '';
+      if (hint) hint.textContent = touchedGroups.has(group.key) && sel && sel.hint ? sel.hint : '';
     }
     function renderAllChips() {
       el.intentGroups.innerHTML = '';
       intentSchema.forEach(group => {
         const sec = document.createElement('div'); sec.className = 'intent-section';
-        sec.innerHTML = `<div class="intent-title">${group.label}</div><div class="intent-help">${group.help || ''}</div>`;
+        sec.innerHTML = `<div class="intent-title">${group.label}</div>`;
+        // 只有第一组（优先改善）的说明是学生看得懂的话，其余是工程描述，不渲染
+        if (group.key === 'optimization_goal' && group.help) {
+          const help = document.createElement('div'); help.className = 'intent-help';
+          help.textContent = group.help;
+          sec.appendChild(help);
+        }
         const chips = document.createElement('div'); chips.className = 'chips-scroll'; chips.id = group.key + '_chips';
         sec.appendChild(chips);
         const hint = document.createElement('div'); hint.className = 'intent-hint'; hint.id = group.key + '_hint';
@@ -946,7 +1077,7 @@
     function updateEspUi(cfg) {
       espScreenEnabled = !cfg || cfg.esp_enabled !== false;
       updateStep1Hint();
-      el.aiCardSubtitle.textContent = espScreenEnabled ? '点击图片可设为屏幕主图' : '小屏幕已关闭，结果仅展示在电脑端';
+      el.aiCardSubtitle.textContent = espScreenEnabled ? '点一张，设成小屏幕主图' : '小屏幕已关闭，结果只在电脑端';
     }
     async function loadEspConfig() {
       try {
@@ -991,16 +1122,18 @@
     async function pushCandidate(item, card, button) {
       const ref = (item && item.diagram_url || '').trim();
       if (!ref) return;
+      const cards = Array.from(el.aiGrid.querySelectorAll('.ai-card'));
+      const idx = cards.indexOf(card) + 1;
       try {
         button.disabled = true; button.textContent = '正在推送…';
         const r = await fetch('/api/push_latest_to_esp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image_ref: ref, include_all: false }) });
         const d = await r.json();
         if (!r.ok || !d.ok) throw new Error(d.msg || '推送失败');
         el.aiGrid.querySelectorAll('.ai-card').forEach(c => c.classList.remove('selected'));
-        el.aiGrid.querySelectorAll('.push-btn').forEach(b => { b.textContent = '选为屏幕主图'; });
-        card.classList.add('selected'); button.textContent = '已选为屏幕主图';
-        setStatus(el.resultStatus, `已推送 ${item.model || 'AI结果'} 到设备屏幕。`, 'ok');
-      } catch(e) { button.textContent = '重试推送'; setStatus(el.resultStatus, '推送失败：' + e.message, 'err'); }
+        el.aiGrid.querySelectorAll('.push-btn').forEach(b => { b.textContent = '设为主图'; });
+        card.classList.add('selected'); button.textContent = '当前主图';
+        setStatus(el.resultStatus, `第 ${idx} 张已经显示在小屏幕上了。`, 'ok');
+      } catch(e) { button.textContent = '重试'; setStatus(el.resultStatus, '没推上去：' + e.message, 'err'); }
       finally { button.disabled = false; }
     }
 
@@ -1009,11 +1142,11 @@
     if (diagnosisMode !== 'fast' && diagnosisMode !== 'standard') diagnosisMode = 'standard';
     function updateStep1Hint() {
       const espPart = espScreenEnabled !== false
-        ? '结果将同步到电脑展示页和 ESP 屏幕。'
-        : '结果将同步到电脑展示页（小屏幕已关闭）。';
+        ? '结果会同步到电脑展示页和小屏幕。'
+        : '结果会同步到电脑展示页（小屏幕已关）。';
       el.step1Hint.textContent = diagnosisMode === 'fast'
-        ? '快速模式约 5-10 秒出结果，诊断较标准模式简略；' + espPart
-        : '拍照后会自动进入诊断分析，' + espPart;
+        ? '快速诊断大约 10 秒，分析会简单些；' + espPart
+        : '拍完直接开始看，一般 20–30 秒；' + espPart;
     }
     function applyModeUI() {
       el.modeSwitch.querySelectorAll('.mode-option').forEach(btn => {
@@ -1054,7 +1187,7 @@
         // Go to step 2 and start diagnosis animation
         goToStep(2, 'forward');
         startDiagAnim();
-        setStatus(el.diagStatus, diagnosisMode === 'fast' ? '正在上传并执行快速诊断…' : '正在上传并执行基础摄影诊断…');
+        setStatus(el.diagStatus, '正在上传照片…');
 
         const fd = new FormData();
         fd.append('photo', file);
@@ -1076,10 +1209,17 @@
         setField('recommended_shooting_position', ai.recommended_shooting_position);
         setField('suggested_adjustment', ai.suggested_adjustment);
 
-        if (d.vision_model || d.diagnosis_elapsed != null) {
-          const parts = [d.mode === 'fast' ? '快速模式' : '标准模式'];
-          if (d.vision_model) parts.push(d.vision_model);
-          if (d.diagnosis_elapsed != null) parts.push(d.diagnosis_elapsed + 's');
+        // 首屏那一句话 = 构图问题；没有就退到景别，再没有就退到画面概括
+        lastSuggestion = ai.suggested_adjustment || '';
+        const verdict = shortSentence(ai.composition_analysis, 42)
+          || shortSentence(ai.shot_size_analysis, 42)
+          || shortSentence(ai.scene_summary, 42);
+        el.verdictText.textContent = verdict || '整张照片看不出明显问题，可以换个方向再拍一张。';
+
+        // 元信息只留"模式 + 用了多久"，不出现模型名
+        if (d.diagnosis_elapsed != null || d.mode) {
+          const parts = [d.mode === 'fast' ? '快速诊断' : '标准诊断'];
+          if (d.diagnosis_elapsed != null) parts.push('用了 ' + d.diagnosis_elapsed + ' 秒');
           el.diagMeta.textContent = parts.join(' · ');
           el.diagMeta.style.display = '';
         }
@@ -1091,11 +1231,13 @@
           diagnosisComplete = true;
           updateNextBtn();
           renderAllChips();
-          setStatus(el.diagStatus, '诊断完成，点击"下一步"继续选择优化目标。', 'ok');
+          setStatus(el.diagStatus, '');
         }, 800);
       } catch(e) {
         stopDiagAnim();
-        setStatus(el.diagStatus, '诊断失败：' + e.message, 'err');
+        // 停下来的样子要看得出来已经停了：关掉等待态，只留一句能照着做的话
+        el.diagLoader.style.display = 'none';
+        setStatus(el.diagStatus, '这次没看成：' + e.message + ' 点上一步重新拍一张。', 'err');
       } finally {
         el.captureBtn.disabled = false; el.photoInput.value = '';
       }
@@ -1135,30 +1277,35 @@
           setField('subject_plan', `${s.subject_position_target || '-'}；${s.pose_strategy || '-'}`);
           setField('output_plan', `${s.output_ratio_label || '-'} / ${s.edit_strength_label || '-'}`);
 
-          // Render AI images
+          // Render AI images：序号 + 图 + 模型名（模型名降为脚注）
           el.aiGrid.innerHTML = '';
           let candidates = Array.isArray(d.model_candidates) ? d.model_candidates : [];
-          if (!candidates.length && d.diagram_url) candidates = [{ model: d.image_model || 'AI结果', diagram_url: d.diagram_url }];
-          candidates.filter(i => i && i.diagram_url).slice(0, 4).forEach(item => {
+          if (!candidates.length && d.diagram_url) candidates = [{ model: d.image_model || 'AI 结果', diagram_url: d.diagram_url }];
+          candidates.filter(i => i && i.diagram_url).slice(0, 4).forEach((item, idx) => {
             const isPrimary = item.diagram_url === d.diagram_url;
             const card = document.createElement('div'); card.className = 'ai-card' + (isPrimary ? ' selected' : '');
-            card.innerHTML = `<div class="ai-card-title">${item.model || 'AI结果'}${isPrimary ? ' · 首选' : ''}</div><img src="${toDisplayUrl(item.diagram_url)}" alt="${item.model}" loading="lazy" />`;
+            card.innerHTML = `<div class="ai-card-index">${idx + 1}</div><img src="${toDisplayUrl(item.diagram_url)}" alt="第 ${idx + 1} 张生成结果" loading="lazy" /><div class="ai-card-title">${item.model || 'AI 结果'}${isPrimary ? ' · 首选' : ''}</div>`;
             const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'push-btn';
             if (!espScreenEnabled) {
               btn.disabled = true; btn.textContent = '小屏幕已关闭';
             } else {
-              btn.textContent = isPrimary ? '当前屏幕主图' : '选为屏幕主图';
+              btn.textContent = isPrimary ? '当前主图' : '设为主图';
               btn.addEventListener('click', () => pushCandidate(item, card, btn));
             }
             card.appendChild(btn);
             el.aiGrid.appendChild(card);
           });
 
-          setStatus(el.resultStatus, '生成完成，电脑端已同步显示结果图。', 'ok');
+          // 今天带走这一条：把诊断里的建议压成一句话
+          el.takeawayText.textContent = makeTakeaway(lastSuggestion);
+          setStatus(el.resultStatus, '已同步到电脑展示页。', 'ok');
         }, 600);
       } catch(e) {
         stopGenAnim();
-        setStatus(el.resultStatus, '生成失败：' + e.message, 'err');
+        // 失败时不要把人留在等待页：退回选项页，按钮还在，可以直接再试一次
+        el.genLoader.style.display = 'none';
+        goToStep(3, 'backward');
+        setStatus(el.genStatus, '这次没生成出来：' + e.message + '，可以再试一次。', 'err');
       } finally {
         generationInProgress = false;
         el.generateBtn.disabled = !diagnosisComplete;

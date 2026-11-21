@@ -1,0 +1,36 @@
+{
+ "push_fallback": [
+  [
+   "http://stub.local/generated.png",
+   false
+  ]
+ ],
+ "generate_fail_probe_break": [
+  [
+   "http://stub.local/gen_main.png",
+   false
+  ],
+  [
+   "http://stub.local/gen_0.png",
+   true
+  ]
+ ],
+ "push_fail_probe_no_break": [
+  [
+   "http://stub.local/gen_main.png",
+   false
+  ],
+  [
+   "http://stub.local/gen_0.png",
+   true
+  ],
+  [
+   "http://stub.local/gen_1.png",
+   true
+  ],
+  [
+   "http://stub.local/gen_2.png",
+   true
+  ]
+ ]
+}

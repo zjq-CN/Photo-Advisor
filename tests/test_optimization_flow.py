@@ -14,10 +14,8 @@ import numpy as np
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
-# geometry.py 位于项目根目录，主程序顶层会 `from geometry import extract_geometry`；
-# importlib 加载不会自动把项目根加入 sys.path，这里手动补上。
+# geometry.py 位于项目根目录，app 包也从这里导入。
 sys.path.insert(0, str(PROJECT_DIR))
-PRIMARY_PATH = PROJECT_DIR / "testV1.0_backup_prompt.py"
 
 # 避免测试导入阶段为未配置项反复查询 Windows 用户环境；这些值只存在于
 # 当前测试进程，所有 HTTP 调用仍会被 mock，绝不会发起付费请求。
@@ -35,11 +33,115 @@ for _name in (
     os.environ.setdefault(_name, "unit-test-only")
 os.environ.setdefault("ESP_SCREEN_ENABLED", "0")
 
-_spec = importlib.util.spec_from_file_location("photo_teaching_app", PRIMARY_PATH)
-if _spec is None or _spec.loader is None:
-    raise RuntimeError(f"无法加载主程序：{PRIMARY_PATH}")
-app_module = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(app_module)
+# 阶段③：直接验证拆分后的 app/ 包（不再 import 旧的单文件主程序）。
+import app as app_pkg  # noqa: E402,F401  （触发路由注册）
+from app import contracts, net, parsing, prompts, strategy, vision  # noqa: E402
+from app import storage  # noqa: E402
+from app.esp import build_screen_jpeg, push_image_to_esp  # noqa: E402
+from app.imagegen import doubao as imagegen_doubao  # noqa: E402
+from app.imagegen import dashscope as imagegen_dashscope  # noqa: E402
+from app import esp as esp_mod  # noqa: E402
+from app import generation as generation_mod  # noqa: E402
+from app.routes import api as routes_api  # noqa: E402
+from app.server import app  # noqa: E402
+from app.storage import validate_session_id  # noqa: E402
+
+
+class _NamespaceProxy:
+    """把名字转发到真正持有它的模块。
+
+    拆分后同一个名字可能存在于多个模块（例如 LATEST_RESULT_JSON 既在
+    routes.api 里被读、又在 storage 里被写），因此 __setattr__ 必须把
+    patch 的写入转发给**全部**持有者，否则只改到代理自己，被测代码仍读原值。
+    """
+
+    def __init__(self, names, direct):
+        object.__setattr__(self, "_names", names)
+        object.__setattr__(self, "_direct", direct)
+        object.__setattr__(self, "_orig", {})
+
+    def __getattr__(self, item):
+        direct = object.__getattribute__(self, "_direct")
+        if item in direct:
+            return direct[item]           # 模块对象本身（requests / subprocess）
+        owners = object.__getattribute__(self, "_names").get(item)
+        if owners:
+            return getattr(owners[0], item)
+        raise AttributeError(item)
+
+    def __setattr__(self, key, value):
+        owners = object.__getattribute__(self, "_names").get(key)
+        if owners:
+            # 首次覆盖前记下各模块的原值，供 patch 退出时还原
+            orig = object.__getattribute__(self, "_orig")
+            if key not in orig:
+                orig[key] = {id(m): getattr(m, key) for m in owners if hasattr(m, key)}
+            for mod in owners:
+                if hasattr(mod, key):
+                    setattr(mod, key, value)
+            return
+        object.__setattr__(self, key, value)
+
+    def __delattr__(self, key):
+        """patch.object 退出时会 delattr：这里把各模块还原成原值。"""
+        owners = object.__getattribute__(self, "_names").get(key)
+        if owners:
+            orig = object.__getattribute__(self, "_orig")
+            saved = orig.pop(key, {})
+            for mod in owners:
+                if id(mod) in saved:
+                    setattr(mod, key, saved[id(mod)])
+            return
+        object.__delattr__(self, key)
+
+
+# 这两个是"模块对象"，patch.object(app_module.requests, "post") 直接改模块属性
+_DIRECT = {
+    "app": app,          # Flask 实例本身（不是 app 包）
+    "requests": vision.requests,
+    "subprocess": net.subprocess,
+}
+
+_NAMES = {
+    "OPTIMIZATION_SCHEMA": (contracts,),
+    "DEFAULT_USER_INTENT": (contracts,),
+    "IMAGE_EDIT_MODELS": (contracts,),
+    "VISION_MODE_PRESETS": (contracts,),
+    "VISION_MODELS": (contracts,),
+    "normalize_user_intent": (contracts,),
+    "ZHIPU_REASONING_EFFORT": (vision,),
+
+    "build_strategy_plan": (strategy,),
+    "build_generation_settings": (strategy,),
+    "build_targeted_ideal_prompt": (prompts,),
+    "build_edit_prompt": (prompts,),
+
+    "build_screen_jpeg": (esp_mod,),
+    "push_image_to_esp": (esp_mod,),
+    "get_local_ip": (net,),
+    "validate_session_id": (storage,),
+
+    "build_analysis_prompt": (vision,),
+    "call_vision_once": (vision,),
+    "call_vision_deepseek_once": (vision,),
+    "call_vision_zhipu_once": (vision,),
+    "edit_with_qwen_image_20": (imagegen_dashscope,),
+    "edit_with_doubao_seedream": (imagegen_doubao,),
+    "build_doubao_model_candidates": (imagegen_doubao,),
+
+    # 读写在两个模块各有一份，必须同时 patch 才一致
+    "LATEST_RESULT_JSON": (routes_api, storage),
+    "SESSION_FOLDER": (storage,),
+    "UPLOAD_FOLDER": (storage,),
+
+    # 拆分后调用点在自己模块内找名字
+    "run_model_compare": (generation_mod,),
+    "extract_geometry": (routes_api,),
+    "call_vision_auto": (routes_api,),
+}
+
+
+app_module = _NamespaceProxy(_NAMES, _DIRECT)
 
 
 DIAGNOSIS = {
