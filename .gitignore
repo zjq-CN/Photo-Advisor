@@ -62,4 +62,5 @@ legacy/phase3_snapshot/
 tests/phase1_new/
 tests/phase2_new/
 tests/baseline2/
-tests/baseline/sandbox/tests/phase3_new/
+tests/baseline/sandbox/
+tests/phase3_new/
